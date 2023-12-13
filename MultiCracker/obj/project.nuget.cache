@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "dgSpecHash": "+0vi347pVOGRwD7HIoyvcQirxLhv3TMgdW+oaHnD+/P5gegd5uScWs4pvu2u7SOQ2jfH7q99yRahMGBzGGGNHg==",
+  "success": true,
+  "projectFilePath": "C:\\Github-Stuff\\C#\\Multi-Cracker\\MultiCracker\\MultiCracker.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net\\3.13.0\\discord.net.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.commands\\3.13.0\\discord.net.commands.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.core\\3.13.0\\discord.net.core.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.interactions\\3.13.0\\discord.net.interactions.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.rest\\3.13.0\\discord.net.rest.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.webhook\\3.13.0\\discord.net.webhook.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\discord.net.websocket\\3.13.0\\discord.net.websocket.3.13.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\5.0.0\\microsoft.extensions.dependencyinjection.abstractions.5.0.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\newtonsoft.json\\13.0.2\\newtonsoft.json.13.0.2.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.collections.immutable\\5.0.0\\system.collections.immutable.5.0.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.interactive.async\\5.0.0\\system.interactive.async.5.0.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.linq.async\\5.0.0\\system.linq.async.5.0.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.reactive\\5.0.0\\system.reactive.5.0.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512"
+  ],
+  "logs": []
+}
