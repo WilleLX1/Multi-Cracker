@@ -8,7 +8,13 @@
     ".NETCoreApp,Version=v6.0": {
       "MultiCracker/1.0.0": {
         "dependencies": {
-          "Discord.Net": "3.13.0"
+          "Discord.Net": "3.13.0",
+          "Discord.Net.Commands": "3.13.0",
+          "Discord.Net.Core": "3.13.0",
+          "Discord.Net.Interactions": "3.13.0",
+          "Discord.Net.Rest": "3.13.0",
+          "Discord.Net.WebSocket": "3.13.0",
+          "Discord.Net.Webhook": "3.13.0"
         },
         "runtime": {
           "MultiCracker.dll": {}

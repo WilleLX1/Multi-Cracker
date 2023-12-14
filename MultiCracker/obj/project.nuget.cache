@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "+0vi347pVOGRwD7HIoyvcQirxLhv3TMgdW+oaHnD+/P5gegd5uScWs4pvu2u7SOQ2jfH7q99yRahMGBzGGGNHg==",
+  "dgSpecHash": "IT9tKiXli6WqcBhoD/kTfAZcWhN4sqY6Fye+yhz+OWehFSk+A6HBLgITIxx1RWGyu1pKqKBxdMIu1eRXqy9UYw==",
   "success": true,
   "projectFilePath": "C:\\Github-Stuff\\C#\\Multi-Cracker\\MultiCracker\\MultiCracker.csproj",
   "expectedPackageFiles": [
@@ -17,7 +17,11 @@
     "C:\\Users\\william.danielsson\\.nuget\\packages\\system.interactive.async\\5.0.0\\system.interactive.async.5.0.0.nupkg.sha512",
     "C:\\Users\\william.danielsson\\.nuget\\packages\\system.linq.async\\5.0.0\\system.linq.async.5.0.0.nupkg.sha512",
     "C:\\Users\\william.danielsson\\.nuget\\packages\\system.reactive\\5.0.0\\system.reactive.5.0.0.nupkg.sha512",
-    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512"
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\6.0.25\\microsoft.windowsdesktop.app.ref.6.0.25.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\microsoft.netcore.app.ref\\6.0.25\\microsoft.netcore.app.ref.6.0.25.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\6.0.25\\microsoft.aspnetcore.app.ref.6.0.25.nupkg.sha512",
+    "C:\\Users\\william.danielsson\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\6.0.25\\microsoft.netcore.app.host.win-x64.6.0.25.nupkg.sha512"
   ],
   "logs": []
 }

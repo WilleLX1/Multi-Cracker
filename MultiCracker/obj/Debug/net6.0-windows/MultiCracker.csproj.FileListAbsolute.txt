@@ -43,3 +43,4 @@ C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\System.In
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\System.Linq.Async.dll
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\System.Reactive.dll
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Debug\net6.0-windows\MultiCracker.csproj.CopyComplete
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Debug\net6.0-windows\MultiCracker.sourcelink.json
