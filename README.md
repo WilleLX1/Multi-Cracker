@@ -1,9 +1,16 @@
 # Multi-Cracker
-POC of a distrubuted password cracker
 
-# How it works
-1. Open built .exe file.
-2. It will connect to your Discord server.
-3. Sync data with other bots and be ready for cracking.
-4. When called upon, it will receive a list of passwords and a hash.
-5. Return correct password to discord server when found, all other bots will stop.
+## Overview
+Multi-Cracker is a proof of concept for a distributed password cracker designed to harness the power of collaborative computing.
+
+## Usage
+1. Execute the provided .exe file to initiate the program.
+2. Establish a connection with your Discord server, facilitating seamless collaboration.
+3. Synchronize data with other bots to optimize resources for efficient password cracking.
+
+## Operation
+4. Upon receiving a command, the cracker is ready to receive a list of passwords and a hash.
+5. It diligently works through the data, halting all other bots once the correct password is identified.
+6. The confirmed password is promptly relayed back to the Discord server, streamlining the cracking process.
+
+Enhance your password cracking capabilities with Multi-Cracker's collaborative approach, fostering faster results through synchronized efforts.
