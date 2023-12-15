@@ -11,7 +11,7 @@ using Discord.WebSocket;
 using System.Threading.Tasks;
 using Microsoft.VisualBasic.Logging;
 using Discord.Commands;
-
+using System.Runtime.InteropServices;
 
 namespace MultiCracker
 {
@@ -32,14 +32,15 @@ namespace MultiCracker
         string Algorithm = "SHA256";
         bool UseNumbers = true;
         bool UseLetters = true;
-        bool UseSymbols = false;
-        bool UseCapitals = false;
-        int MaxLength = 2;
-        int MinLength = 1;
+        bool UseSymbols = true;
+        bool UseCapitals = true;
+        int MaxLength = 11;
+        int MinLength = 11;
+        // NeoMeyer20!
 
 
         // Communication
-        string BOT_TOKEN = "BOT-TOKEN-HERE";
+        string BOT_TOKEN = "BOT-HERE";
 
         int counter = 0;
 
@@ -52,16 +53,12 @@ namespace MultiCracker
         public Form1()
         {
             InitializeComponent();
-            InitializeAsync();
+            Task.Run(() => DiscordThread());
         }
 
         // Discord
         private DiscordSocketClient _client;
-        private async void InitializeAsync()
-        {
-            await InitializeBot();
-        }
-        private async Task InitializeBot()
+        private async Task DiscordThread()
         {
             var config = new DiscordSocketConfig
             {
@@ -81,30 +78,45 @@ namespace MultiCracker
         private Task Log(LogMessage arg)
         {
             // Handle logging (e.g., display in a TextBox)
-            txtOutput.AppendText(arg + "\r\n");
+            Invoke(new Action(() =>
+            {
+                txtOutput.AppendText(arg + "\r\n");
+            }));
+
             return Task.CompletedTask;
         }
+
         private async Task HandleMessage(SocketMessage arg)
         {
-            Log(new LogMessage(LogSeverity.Info, "Message", "Message event triggered."));
-
             if (arg is not IUserMessage message || message.Author.IsBot)
                 return;
 
-            // Check the type of the message
-            Log(new LogMessage(LogSeverity.Info, "Message", $"Message type: {arg.Type}"));
+            bool heavyLoging = true;
+            if (heavyLoging)
+            {
+                Log(new LogMessage(LogSeverity.Info, "Message", "Message event triggered."));
 
-            // Check for embeds or attachments
-            if (message.Embeds.Any())
-                Log(new LogMessage(LogSeverity.Info, "Message", "Message contains embeds."));
-            if (message.Attachments.Any())
-                Log(new LogMessage(LogSeverity.Info, "Message", "Message contains attachments."));
+                // Check the type of the message
+                Log(new LogMessage(LogSeverity.Info, "Message", $"Message type: {arg.Type}"));
 
-            // Log the raw content of the message
-            Log(new LogMessage(LogSeverity.Info, "Message", $"Raw message content: {message.Content}"));
+                // Check for embeds or attachments
+                if (message.Embeds.Any())
+                    Log(new LogMessage(LogSeverity.Info, "Message", "Message contains embeds."));
+                if (message.Attachments.Any())
+                    Log(new LogMessage(LogSeverity.Info, "Message", "Message contains attachments."));
 
+                // Log the raw content of the message
+                Log(new LogMessage(LogSeverity.Info, "Message", $"Raw message content: {message.Content}"));
+            }
+            
             // Trim the message content to remove leading and trailing whitespaces
             string trimmedContent = message.Content.Trim();
+
+            // Example of using Invoke for UI updates
+            Invoke(new Action(() =>
+            {
+                txtOutput.AppendText($"Received message: {trimmedContent}\r\n");
+            }));
 
             if (!string.IsNullOrEmpty(trimmedContent))
             {
@@ -113,7 +125,7 @@ namespace MultiCracker
                 if (trimmedContent == "!help")
                 {
                     // Send a message to the channel
-                    string help_message = "Hello! I am a bot that can crack passwords. Here are my commands:\r\n!help - Displays this message.\r\n!crack - Starts cracking the password.\r\n!stop - Stops cracking the password.\r\n!sethash - Sets the hash to crack.\r\n!setpass - Sets the password to crack.\r\n!sethashinfo - Sets the hash settings.\r\n!setpassinfo - Sets the password settings.\r\n!settarget - Sets the target hash and password.\r\n";
+                    string help_message = "Hello! I am a bot that can crack passwords. Here are my commands:\r\n!help - Displays this message.\r\n!crack - Starts cracking the password.\r\n!stop - Stops cracking the password.\r\n!setHash - Sets the hash to crack.\r\n!setHash - Sets the hash to crack.\r\n!status - Sends status.\r\n!info - Sends info.\r\n!reset - Resets the bot.\r\n!setHash - Sets the hash to crack.\r\n!setMax - Sets the passwords max length.\r\n!setMin - Sets the passwords min length.\r\n!setLetters - Sets the password to use letters.\r\n!setNumbers - Sets the password to use numbers.\r\n!setSymbols - Sets the password to use symbols.\r\n!setCapitals - Sets the password to use capitals.\r\n!status - Sends status.\r\n\r\n";
                     await message.Channel.SendMessageAsync(help_message);
 
                     // Hello! I am a bot that can crack passwords.
@@ -126,38 +138,41 @@ namespace MultiCracker
                     // DONE !setHash - Sets the hash to crack.
                     // DONE !status - Sends status.
                     // DONE !info - Sends info.
+                    // DONE !reset - Resets the bot.
 
-                    // DONE !setMaxLength <length> - Sets the passwords max length.
-                    // DONE !setMinLength <length> - Sets the passwords min length.
+                    // DONE !setMax <length> - Sets the passwords max length.
+                    // DONE !setMin <length> - Sets the passwords min length.
 
-                    // !setLetters <true/false> - Sets the password to use letters.
-                    // !setNumbers <true/false> - Sets the password to use numbers.
-                    // !setSymbols <true/false> - Sets the password to use symbols.
-                    // !setCapitals <true/false> - Sets the password to use capitals.
+                    // DONE !setLetters <true/false> - Sets the password to use letters.
+                    // DONE !setNumbers <true/false> - Sets the password to use numbers.
+                    // DONE !setSymbols <true/false> - Sets the password to use symbols.
+                    // DONE !setCapitals <true/false> - Sets the password to use capitals.
 
                 }
                 else if (trimmedContent.StartsWith("!crack"))
                 {
                     // Simulate a button press of btnStartCracking
                     btnStartCracking_Click(null, null);
+                    await message.Channel.SendMessageAsync("Cracking started... Use **!status** it see its progress!");
                 }
                 else if (trimmedContent.StartsWith("!stop"))
                 {
                     btnStopCracking_Click(null, null);
+                    await message.Channel.SendMessageAsync("Pushed Emergency Eutton!!! This will halt any cracking.");
                 }
                 else if (trimmedContent.StartsWith("!setHash"))
                 {
                     // Find the argument after !sethash
-                    string argument = trimmedContent.Substring(8);
+                    string argument = trimmedContent.Substring(9);
                     hash = argument;
                     txtTargetHash.Text = hash;
 
                     await message.Channel.SendMessageAsync($"Set hash to: **{hash}**");
                 }
-                else if (trimmedContent.StartsWith("!setMaxLength"))
+                else if (trimmedContent.StartsWith("!setMax"))
                 {
                     // Find the argument after !setMaxLength
-                    string maxLength = trimmedContent.Substring(13);
+                    string maxLength = trimmedContent.Substring(7);
                     MaxLength = Convert.ToInt32(maxLength);
                     txtMax.Text = maxLength;
 
@@ -166,10 +181,10 @@ namespace MultiCracker
 
                     Log(new LogMessage(LogSeverity.Info, "Password", $"Max length set to: {maxLength}"));
                 }
-                else if (trimmedContent.StartsWith("!setMinLength"))
+                else if (trimmedContent.StartsWith("!setMin"))
                 {
                     // Find the argument after !setMinLength
-                    string minLength = trimmedContent.Substring(13);
+                    string minLength = trimmedContent.Substring(7);
                     MinLength = Convert.ToInt32(minLength);
                     txtMin.Text = minLength;
 
@@ -180,15 +195,31 @@ namespace MultiCracker
                 }
                 else if (trimmedContent == "!status")
                 {
-                    string status = GetStatus();
-                    await message.Channel.SendMessageAsync(status);
-                    Log(new LogMessage(LogSeverity.Info, "Status", $"Status: {status}"));
+                    Invoke(new Action(() =>
+                    {
+                        string status = GetStatus();
+                        message.Channel.SendMessageAsync(status);
+                        Log(new LogMessage(LogSeverity.Info, "Status", $"Status: {status}"));
+                    }));
                 }
                 else if (trimmedContent == "!info")
                 {
                     string info = GetInfo();
                     await message.Channel.SendMessageAsync(info);
                     Log(new LogMessage(LogSeverity.Info, "Info", $"Info: {info}"));
+                }
+                else if (trimmedContent == "!reset")
+                {
+                    Algorithm = "SHA256";
+                    UseNumbers = false;
+                    UseLetters = false;
+                    UseSymbols = false;
+                    UseCapitals = false;
+                    MaxLength = 8;
+                    MinLength = 5;
+                    counter = 0;
+                    await message.Channel.SendMessageAsync("Reset settings.");
+                    Log(new LogMessage(LogSeverity.Info, "Message", "Reset settings."));
                 }
                 else if (trimmedContent.StartsWith("!setLetters"))
                 {
@@ -289,13 +320,6 @@ namespace MultiCracker
         // get status
         private string GetStatus()
         {
-            // If password is found.
-            // Attempts
-            // Possible Combinations
-            // Hashes per second
-            // Time elapsed
-            // Estimated Time Remaining
-
             string status = "";
             if (FoundCorrectPass)
             {
@@ -306,9 +330,13 @@ namespace MultiCracker
                 status += "Password not found.\r\n";
             }
             status += $"Attempts: {counter}\r\n";
+            // Calculate possible combinations
+            long possibleCombinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
             status += $"Possible Combinations: {CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength)}\r\n";
-            // Caluulate hashes per second (counter / timer1.Interval)
-            int hashPerSec = counter / Convert.ToInt32(timer1.Interval);
+            status += $"Guesses: {counter}/{possibleCombinations}\r\n";
+            // Calculate hashes per second (counter / elapsed time in seconds)
+            double elapsedTimeInSeconds = counter * (timer1.Interval / 1000.0); // Convert milliseconds to seconds
+            int hashPerSec = (int)(counter / elapsedTimeInSeconds);
             status += $"Hashes per second: {hashPerSec}\r\n";
             // Calculate time elapsed
             TimeSpan time = TimeSpan.FromMilliseconds(timer1.Interval * counter);
@@ -353,13 +381,18 @@ namespace MultiCracker
 
             // Debug
             counter++;
-            txtOutput.AppendText("Attempt #" + counter + ": " + pass + "\r\n");
+            //txtOutput.AppendText("Attempt #" + counter + ": " + pass + "\r\n");
             //txtOutput.AppendText("Hashed password: " + hash + "\r\n");
 
             txtGuessedPassword.Text = hash;
         }
 
-        private void btnStartCracking_Click(object sender, EventArgs e)
+        private async void btnStartCracking_Click(object sender, EventArgs e)
+        {
+            await Task.Run(() => StartCrackingAsync());
+        }
+
+        private async Task StartCrackingAsync()
         {
             Log(new LogMessage(LogSeverity.Info, "Cracking", "Cracking started..."));
             string finalPassword = "";
@@ -394,125 +427,11 @@ namespace MultiCracker
             // Start timer
             timer1.Start();
 
-            bool temp = false;
-            while (temp)
-            {
-                int pass = 0;
-                string chars = "";
-                currentPassword = "";
-
-                if (UseNumbers && !UseLetters)
-                {
-                    // Transform MaxLegnth into a thousand number (e.g. 3 = 1000, 4 = 10000, etc.)
-                    int max = Convert.ToInt32(Math.Pow(10, MaxLength));
-
-                    // Transform MinLegnth into a number
-                    int min = Convert.ToInt32(Math.Pow(10, MinLength));
-
-
-                    // Generate a random password containing "MaxLegnth" numbers
-                    Random rnd = new Random();
-                    pass = rnd.Next(min, max);
-                    // If password is in the list of non-working passwords, generate a new one
-                    while (nonWorkingPasswords.Contains(pass.ToString()))
-                    {
-                        pass = rnd.Next(min, max);
-                    }
-                    currentPassword = pass.ToString();
-                    txtGuessedPassword.Text = currentPassword;
-                }
-                else if (!UseNumbers && UseLetters)
-                {
-                    // Generate a random password containing "MaxLegnth" letters
-                    Random rnd = new Random();
-                    if (UseCapitals)
-                    {
-                        chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-                    }
-                    else
-                    {
-                        chars = "abcdefghijklmnopqrstuvwxyz";
-                    }
-                    char[] stringChars = new char[MaxLength];
-                    for (int i = 0; i < stringChars.Length; i++)
-                    {
-                        stringChars[i] = chars[rnd.Next(chars.Length)];
-                    }
-                    currentPassword = new String(stringChars);
-                    txtGuessedPassword.Text = currentPassword;
-                }
-                else if (UseNumbers && UseLetters)
-                {
-                    Random rnd = new Random();
-                    if (UseCapitals)
-                    {
-                        chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-                    }
-                    else
-                    {
-                        chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-                    }
-                    char[] stringChars = new char[MaxLength];
-                    for (int i = 0; i < stringChars.Length; i++)
-                    {
-                        stringChars[i] = chars[rnd.Next(chars.Length)];
-                    }
-                    currentPassword = new String(stringChars);
-                    txtGuessedPassword.Text = currentPassword;
-                }
-
-                // Hash the password and compare it to the target hash
-                PassToHash(currentPassword);
-
-                if (txtGuessedPassword.Text == txtTargetHash.Text || SomeoneElseFoundPassword || EmergencySTOP)
-                {
-                    if (SomeoneElseFoundPassword)
-                    {
-                        // Stop timer
-                        timer1.Stop();
-                        FoundCorrectPass = true;
-
-                        txtOutput.AppendText("Someone else found the password first!\r\n");
-                        Log(new LogMessage(LogSeverity.Info, "Cracking", "Someone else found the password first!"));
-                        txtOutput.AppendText("Password found: (" + elsesHash + ":" + elsesPassword + ")\r\n");
-
-                        // Print how long it took to find the password
-                        TimeSpan time = TimeSpan.FromMilliseconds(timer1.Interval * counter);
-                        txtOutput.AppendText(time.ToString(@"hh\:mm\:ss\:fff") + "\r\n");
-                    }
-                    else
-                    {
-                        // Stop timer
-                        timer1.Stop();
-                        FoundCorrectPass = true;
-
-                        if (UseNumbers && !UseLetters)
-                        {
-                            finalPassword = pass.ToString();
-                        }
-                        else
-                        {
-                            finalPassword = currentPassword;
-                        }
-                        Log(new LogMessage(LogSeverity.Info, "Cracking", "Password found! (" + txtGuessedPassword.Text + ":" + finalPassword + ")"));
-                        txtOutput.AppendText("Password Found! (" + txtGuessedPassword.Text + ":" + finalPassword + ")\r\n");
-
-                        // rint how long it took to find the password
-                        TimeSpan time = TimeSpan.FromMilliseconds(timer1.Interval * counter);
-                        txtOutput.AppendText(time.ToString(@"hh\:mm\:ss\:fff") + "\r\n");
-                    }
-                }
-                else
-                {
-                    // Add hash/password to a list of non-working passwords
-                    nonWorkingPasswords.Add(txtGuessedPassword.Text);
-                }
-            }
-
             // The loop is done, and you don't need to redeclare 'password' here.
             // If you want to use the target hash as the final password, you can do this:
             txtDonePassword.Text = finalPassword.ToString();
         }
+
 
         private void SetHashInfo()
         {
