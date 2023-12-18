@@ -35,6 +35,8 @@
             txtGuessedPassword = new TextBox();
             txtMin = new TextBox();
             groupBox1 = new GroupBox();
+            button2 = new Button();
+            button1 = new Button();
             textBox5 = new TextBox();
             textBox6 = new TextBox();
             textBox3 = new TextBox();
@@ -100,6 +102,8 @@
             // 
             // groupBox1
             // 
+            groupBox1.Controls.Add(button2);
+            groupBox1.Controls.Add(button1);
             groupBox1.Controls.Add(textBox5);
             groupBox1.Controls.Add(textBox6);
             groupBox1.Controls.Add(textBox3);
@@ -114,6 +118,26 @@
             groupBox1.TabIndex = 6;
             groupBox1.TabStop = false;
             groupBox1.Text = "groupBox1";
+            // 
+            // button2
+            // 
+            button2.Location = new Point(136, 103);
+            button2.Name = "button2";
+            button2.Size = new Size(94, 29);
+            button2.TabIndex = 13;
+            button2.Text = "Heartbeat";
+            button2.UseVisualStyleBackColor = true;
+            button2.Click += button2_Click;
+            // 
+            // button1
+            // 
+            button1.Location = new Point(31, 103);
+            button1.Name = "button1";
+            button1.Size = new Size(94, 29);
+            button1.TabIndex = 12;
+            button1.Text = "button1";
+            button1.UseVisualStyleBackColor = true;
+            button1.Click += button1_Click;
             // 
             // textBox5
             // 
@@ -196,6 +220,7 @@
             Controls.Add(txtOutput);
             Name = "Form1";
             Text = "Form1";
+            Load += Form1_Load;
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
             ResumeLayout(false);
@@ -217,5 +242,7 @@
         private TextBox textBox5;
         private TextBox textBox6;
         private Button btnStopCracking;
+        private Button button1;
+        private Button button2;
     }
 }

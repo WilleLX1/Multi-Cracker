@@ -8,10 +8,14 @@ namespace MultiCracker
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
-            ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(true);
+
+            // Create a single instance of your main form
+            Form1 form1 = new Form1();
+
+            // Run the application
+            Application.Run(form1);
         }
     }
 }
