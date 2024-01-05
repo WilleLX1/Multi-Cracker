@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MultiCracker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5e7221bade8c2a15b49a14a1dbcbc36537d241ab")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5171905c194dbc9a7828c36de4afeb62c47858b2")]
 [assembly: System.Reflection.AssemblyProductAttribute("MultiCracker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MultiCracker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

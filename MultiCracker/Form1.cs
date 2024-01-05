@@ -16,8 +16,12 @@ using System.Diagnostics;
 using System.Threading.Channels;
 using System.Net;
 using System.Net.Sockets;
+using System.Numerics;
 using Microsoft.Win32;
 using System.Security.Principal;
+using System.Reflection;
+using System.Reactive;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace MultiCracker
 {
@@ -42,7 +46,7 @@ namespace MultiCracker
         // ----------------------------------------
 
         bool EmergencySTOP = false;
-        private bool DebugMode = true;
+        private bool DebugMode = false;
 
         // Discord
         bool SomeoneElseFoundPassword = false;
@@ -55,6 +59,7 @@ namespace MultiCracker
         string currentPassword = "";
         string hash;
         string password;
+
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
@@ -434,11 +439,11 @@ namespace MultiCracker
                     int numberOfComputers = computers.Count;
 
                     // Calculate the number of combinations
-                    long combinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
+                    BigInteger combinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
                     Log(new LogMessage(LogSeverity.Info, "Password", "Number of combinations: " + combinations));
 
                     // Calculate the number of combinations per bot
-                    long combinationsPerBot = combinations / numberOfComputers;
+                    BigInteger combinationsPerBot = combinations / numberOfComputers;
                     Log(new LogMessage(LogSeverity.Info, "Password", "Number of combinations per bot: " + combinationsPerBot));
 
                     // Send out the settings to the other bots
@@ -1131,27 +1136,28 @@ namespace MultiCracker
         }
         void ElevateToAdmin()
         {
-            // Get the path of the current executable
-            string exePath = Application.ExecutablePath;
-
-            // Create a new processStartInfo
-            ProcessStartInfo processStartInfo = new ProcessStartInfo(exePath);
-            processStartInfo.Verb = "runas";
-
             try
             {
-                // Start the process
-                Process.Start(processStartInfo);
+                // Get the path of the current executable
+                string exePath = Application.ExecutablePath;
+
+                // Execute command with powershell
+                // powershell -NoProfile -ExecutionPolicy Bypass -Command "& {Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\MultiCracker.exe'}"
+                string command = $"-NoProfile -ExecutionPolicy Bypass -Command \"& {{Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command {exePath}'}}\"";
+                ProcessStartInfo processInfo = new ProcessStartInfo("powershell", $"{command}");
+                Log(new LogMessage(LogSeverity.Info, "Elevate", $"Command to elevate: " + $"powershell {command}"));
+                processInfo.CreateNoWindow = true;
+                processInfo.UseShellExecute = false;
+                processInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                Process process = new Process();
+                process.StartInfo = processInfo;
+                process.Start();
+                process.WaitForExit();
             }
             catch (Exception ex)
             {
-                // Handle exceptions (e.g., user cancels UAC prompt)
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                // Exit the current process
-                Environment.Exit(0);
+                // Log
+                Log(new LogMessage(LogSeverity.Error, "Elevate", $"Error elevating to admin: {ex.Message}"));
             }
         }
 
@@ -1374,39 +1380,294 @@ namespace MultiCracker
         // get status
         private string GetStatus()
         {
-            // Calculate hashes per second
-            double hashesPerSecond = counter / stopwatch.Elapsed.TotalSeconds;
-            int hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
+            // Variables
+            int hashesPerSecondInt = 0;
+            double hashesPerSecond = 0.0;
+            string currentGuess = "";
+            string timeStarted = "";
+            string timeStopped = "";
+            TimeSpan timeElapsed = new TimeSpan();
+            double estimatedTimeRemaining = 0.0;
+            string formattedTimeRemaining = "";
+            string formattedTimeElapsed = "";
+            BigInteger possibleCombinations = 0;
+
+            // Calculate possible combinations
+            try
+            {
+                // Calculate possible combinations
+                possibleCombinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating possible combinations: {ex.Message}"));
+            }
+
+            // Calculate hashes per second (Phase 1)
+            try
+            {
+                // Calculate hashes per second
+                hashesPerSecond = counter / stopwatch.Elapsed.TotalSeconds;
+                hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating hashes per second (Phase 1): {ex.Message}"));
+            }
+
+            // Calculate hashes per second (Phase 2)
+            try
+            {
+                // Check if the Force Start and Force End are set to anything else than default
+                if (forceEnd == int.MaxValue || forceStart == 0)
+                {
+                    // Force Start and Force End are not set (default)
+                    // Calculate hashes per second
+                    hashesPerSecond = counter / stopwatch.Elapsed.TotalSeconds;
+                    hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
+                }
+                else
+                {
+                    // Force Start and Force End are set (not default)
+                    // Calculate hashes per second
+                    hashesPerSecond = (counter - forceStart) / stopwatch.Elapsed.TotalSeconds;
+                    hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating hashes per second (Phase 2): {ex.Message}"));
+            }
+
             // Calculate estimated time remaining
-            double estimatedTimeRemaining = (CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength) - counter) / hashesPerSecond;
+            try
+            {
+                // Calculate estimated time remaining
+                estimatedTimeRemaining = (double)possibleCombinations / hashesPerSecond;
+                Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining (in seconds): {estimatedTimeRemaining}"));
+
+                // Ensure estimatedTimeRemaining is non-negative
+                estimatedTimeRemaining = Math.Max(estimatedTimeRemaining, 0);
+
+                // Calculate days, hours, minutes, seconds, and milliseconds
+                BigInteger totalSeconds = (BigInteger)estimatedTimeRemaining;
+
+                BigInteger days = totalSeconds / (24 * 3600);
+                BigInteger remainingSeconds = totalSeconds % (24 * 3600);
+                BigInteger hours = remainingSeconds / 3600;
+                BigInteger remainingMinutes = remainingSeconds % 3600;
+                BigInteger minutes = remainingMinutes / 60;
+                BigInteger seconds = remainingMinutes % 60;
+                BigInteger milliseconds = (BigInteger)((estimatedTimeRemaining - Math.Floor(estimatedTimeRemaining)) * 1000);
+
+                Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining: {days}D:{hours}H:{minutes}M:{seconds}S:{milliseconds}F"));
+
+                // Format the time remaining
+                formattedTimeRemaining = $"{days:D3}D:{hours:D2}H:{minutes:D2}M:{seconds:D2}S:{milliseconds:D3}F";
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating estimated time remaining: {ex.Message}"));
+            }
+
+            // Calculate current guess
+            try
+            {
+                if (counter == 0)
+                {
+                    currentGuess = "None";
+                }
+                else
+                {
+                    currentGuess = GeneratePasswords(MinLength, MaxLength, UseLetters, UseNumbers, UseCapitals, UseSymbols).ElementAt(counter - 1);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating current guess: {ex.Message}"));
+            }
+
+            // Calculate time started
+            try
+            {
+                // Take the current time - the time elapsed
+                timeStarted = DateTime.Now.Subtract(stopwatch.Elapsed).ToString();
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating time started: {ex.Message}"));
+            }
+
+            // Calculate time stopped
+            try
+            {
+                try
+                {
+                    // Date time done
+                    DateTimeOffset baseDateTimeOffset = DateTimeOffset.UtcNow;
+
+                    // Calculate timeDoneOffset using BigInteger directly
+                    BigInteger remainingTicks = BigInteger.Multiply((BigInteger)estimatedTimeRemaining, (BigInteger)TimeSpan.TicksPerSecond);
+                    DateTimeOffset timeDoneOffset = baseDateTimeOffset.AddTicks((long)remainingTicks);
+
+                    timeStopped = timeDoneOffset.ToString();
+                    Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated Hash Done: {timeStopped}"));
+                }
+                catch (Exception ex)
+                {
+                    // Log error
+                    Log(new LogMessage(LogSeverity.Error, "Info", $"Error calculating estimated hash cracked: {ex.Message}"));
+                    timeStopped = "A long time ago in a galaxy far, far away....";
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating time stopped: {ex.Message}"));
+            }
+
             // Calculate time elapsed
-            TimeSpan timeElapsed = stopwatch.Elapsed;
+            try
+            {
+                // Convert timeElapsed to a string that looks like this: 000D:00H:00M:00S:000F
+                timeElapsed = stopwatch.Elapsed;
 
+                // Calculate days, hours, minutes, seconds, and milliseconds
+                BigInteger totalSeconds = (BigInteger)timeElapsed.TotalSeconds;
+                BigInteger days = totalSeconds / (24 * 3600);
+                BigInteger hours = totalSeconds / 3600;
+                BigInteger remainingMinutes = totalSeconds % 3600;
+                BigInteger minutes = remainingMinutes / 60;
+                BigInteger seconds = remainingMinutes % 60;
+                BigInteger milliseconds = (BigInteger)((estimatedTimeRemaining - Math.Floor(estimatedTimeRemaining)) * 1000);
+
+                // Format the time
+                formattedTimeElapsed = $"{days:D3}D:{hours:D2}H:{minutes:D2}M:{seconds:D2}S:{milliseconds:D3}F";
+
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating time elapsed: {ex.Message}"));
+            }
+
+            // Create status string
             string status = "";
-            status += $"Password found: {FoundCorrectPass} \r\n";
-            status += $"Hash: {hash} \r\n";
-            status += $"Attempts: {counter} \r\n";
-            status += $"Possible Combinations: {CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength)} \r\n";
-            status += $"Guesses: {counter}/{CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength)} \r\n";
-            status += $"Hashes per second: {hashesPerSecondInt} \r\n";
-            status += $"Time elapsed: {timeElapsed.ToString(@"hh\:mm\:ss\:fff")} (hh\"mm\"ss\"fff)\r\n";
-            status += $"Estimated time remaining: {TimeSpan.FromSeconds(estimatedTimeRemaining).ToString(@"hh\:mm\:ss\:fff")} (hh\"mm\"ss\"fff)\r\n";
-            status += $"Force start: {forceStart} \r\n";
-            status += $"Force end: {forceEnd} \r\n";
-
+            try
+            {
+                status += $"**------------------ Settings ------------------**\r\n";
+                status += $"Password found: **{FoundCorrectPass}** \r\n";
+                status += $"Algorithm: **{Algorithm}** \r\n";
+                if (hash != null)
+                {
+                    status += $"Hash: **{hash}** \r\n";
+                }
+                else
+                {
+                    status += $"Hash: **NULL** \r\n";
+                }
+                status += $"\r\n";
+                status += $"Current Hash Guess: **{txtGuessedPassword.Text}** \r\n";
+                status += $"Current Password Guess: **{currentGuess}**\r\n";
+                status += $"\r\n**------------------ Attempts ------------------**\r\n";
+                status += $"Attempts: **{counter}** \r\n";
+                status += $"Possible Combinations: **{possibleCombinations}** \r\n";
+                status += $"Total Attemps: **{counter}/{possibleCombinations}** \r\n";
+                status += $"\r\n**------------------ Time ------------------**\r\n";
+                status += $"Time started: **{timeStarted}** \r\n";
+                status += $"Time stopped: **{timeStopped}** (Estimated...)\r\n";
+                status += $"\r\n";
+                status += $"Hashes per second: **{hashesPerSecondInt}** \r\n";
+                status += $"Time elapsed: **{formattedTimeElapsed}** \r\n";
+                status += $"Estimated time remaining: **{formattedTimeRemaining}** \r\n";
+                status += $"\r\n**------------------ Misc ------------------**\r\n";
+                status += $"Force start: **{forceStart}** \r\n";
+                status += $"Force end: **{forceEnd}** \r\n";
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Status", $"Error creating status string: {ex.Message}"));
+            }
             return status;
         }
         private string GetInfo()
         {
+            // Calculate estimated time remaining by dividing the number of combinations by the hashes per second
+            BigInteger possibleCombinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
+            Log(new LogMessage(LogSeverity.Info, "Info", $"Possible combinations: {possibleCombinations}"));
+
+            // Calculate hashes per second
+            double hashesPerSecond = 300;
+
+            // Calculate estimated time remaining
+            double estimatedTimeRemaining = (double)possibleCombinations / hashesPerSecond;
+            Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining (in seconds): {estimatedTimeRemaining}"));
+
+            // Ensure estimatedTimeRemaining is non-negative
+            estimatedTimeRemaining = Math.Max(estimatedTimeRemaining, 0);
+
+            // Calculate days, hours, minutes, seconds, and milliseconds
+            BigInteger totalSeconds = (BigInteger)estimatedTimeRemaining;
+            
+            BigInteger days = totalSeconds / (24 * 3600);
+            BigInteger remainingSeconds = totalSeconds % (24 * 3600);
+            BigInteger hours = remainingSeconds / 3600;
+            BigInteger remainingMinutes = remainingSeconds % 3600;
+            BigInteger minutes = remainingMinutes / 60;
+            BigInteger seconds = remainingMinutes % 60;
+            BigInteger milliseconds = (BigInteger)((estimatedTimeRemaining - Math.Floor(estimatedTimeRemaining)) * 1000);
+
+            Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining: {days}D:{hours}H:{minutes}M:{seconds}S:{milliseconds}F"));
+
+            // Format the time remaining
+            string formattedTimeRemaining = $"{days:D3}D:{hours:D2}H:{minutes:D2}M:{seconds:D2}S:{milliseconds:D3}F";
+
+            string timeDone = "";
+            try
+            {
+                // Date time done
+                DateTimeOffset baseDateTimeOffset = DateTimeOffset.UtcNow;
+
+                // Calculate timeDoneOffset using BigInteger directly
+                BigInteger remainingTicks = BigInteger.Multiply((BigInteger)estimatedTimeRemaining, (BigInteger)TimeSpan.TicksPerSecond);
+                DateTimeOffset timeDoneOffset = baseDateTimeOffset.AddTicks((long)remainingTicks);
+
+                timeDone = timeDoneOffset.ToString();
+                Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated Hash Cracked: {timeDone}"));
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                Log(new LogMessage(LogSeverity.Error, "Info", $"Error calculating estimated hash cracked: {ex.Message}"));
+                timeDone = "A long time ago in a galaxy far, far away....";
+            }
+
             string info = "";
-            info += $"Hash: {hash} \r\n";
-            info += $"Algorithm: {Algorithm} \r\n";
-            info += $"UseNumbers: {UseNumbers} \r\n";
-            info += $"UseLetters: {UseLetters} \r\n";
-            info += $"UseSymbols: {UseSymbols} \r\n";
-            info += $"UseCapitals: {UseCapitals} \r\n";
-            info += $"Max length: {MaxLength} \r\n";
-            info += $"Min length: {MinLength} \r\n";
+            if (hash != null)
+            {
+                info += $"Hash: **{hash}** \r\n";
+            }
+            else
+            {
+                info += $"Hash: **NULL** \r\n";
+            }
+            info += $"Algorithm: **{Algorithm}** \r\n";
+            info += $"UseNumbers: **{UseNumbers}** \r\n";
+            info += $"UseLetters: **{UseLetters}** \r\n";
+            info += $"UseSymbols: **{UseSymbols}** \r\n";
+            info += $"UseCapitals: **{UseCapitals}** \r\n";
+            info += $"Max length: **{MaxLength}** \r\n";
+            info += $"Min length: **{MinLength}** \r\n";
+            info += $"Possible combinations: **{possibleCombinations}** \r\n";
+            info += $"Estimated time remaining: **{formattedTimeRemaining}** (Assuming hashPerSecond is around {hashesPerSecond}) \r\n";
+            info += $"Estimated hash done: **{timeDone}** \r\n";
             return info;
         }
 
@@ -1566,7 +1827,7 @@ namespace MultiCracker
             if (useSymbols) chars += "!@#$%^&*()";
 
             // Calculate the number of combinations
-            long combinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
+            BigInteger combinations = CalculateCombinations(UseNumbers, UseLetters, UseSymbols, UseCapitals, MaxLength, MinLength);
             Log(new LogMessage(LogSeverity.Info, "Password", "Number of combinations: " + combinations));
 
             for (int length = minLength; length <= maxLength; length++)
@@ -1587,7 +1848,7 @@ namespace MultiCracker
         }
 
         // Calculate combinations
-        static long CalculateCombinations(bool useNumbers, bool useLetters, bool useSymbols, bool useCapitals, int maxLength, int minLength)
+        static BigInteger CalculateCombinations(bool useNumbers, bool useLetters, bool useSymbols, bool useCapitals, int maxLength, int minLength)
         {
             // Define the number of characters for each type
             int numNumbers = useNumbers ? 10 : 0; // 0-9
@@ -1605,10 +1866,10 @@ namespace MultiCracker
             }
 
             // Calculate the number of combinations
-            long combinations = 0;
+            BigInteger combinations = 0;
             for (int length = minLength; length <= maxLength; length++)
             {
-                combinations += (long)Math.Pow(totalCharacters, length);
+                combinations += BigInteger.Pow(totalCharacters, length);
             }
 
             return combinations;
