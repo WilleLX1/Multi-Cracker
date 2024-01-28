@@ -44,3 +44,6 @@ C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\System.Li
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\System.Reactive.dll
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Debug\net6.0-windows\MultiCracker.csproj.CopyComplete
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Debug\net6.0-windows\MultiCracker.sourcelink.json
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\AForge.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\AForge.Video.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\AForge.Video.DirectShow.dll

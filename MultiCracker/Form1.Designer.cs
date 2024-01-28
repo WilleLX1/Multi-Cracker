@@ -74,7 +74,6 @@
             txtDonePassword.Name = "txtDonePassword";
             txtDonePassword.Size = new Size(238, 23);
             txtDonePassword.TabIndex = 2;
-            txtDonePassword.TextChanged += txtDonePassword_TextChanged;
             // 
             // btnStartCracking
             // 

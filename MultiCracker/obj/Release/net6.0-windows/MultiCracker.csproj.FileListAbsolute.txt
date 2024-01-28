@@ -28,3 +28,6 @@ C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Release\net6.0-windows\refint\
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Release\net6.0-windows\MultiCracker.pdb
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Release\net6.0-windows\MultiCracker.genruntimeconfig.cache
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Release\net6.0-windows\ref\MultiCracker.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.Video.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.Video.DirectShow.dll

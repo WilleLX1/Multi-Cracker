@@ -39,15 +39,16 @@
           "warnAsError": [
             "NU1605"
           ]
-        },
-        "restoreAuditProperties": {
-          "enableAudit": "default"
         }
       },
       "frameworks": {
         "net6.0-windows7.0": {
           "targetAlias": "net6.0-windows",
           "dependencies": {
+            "AForge.Video.DirectShow": {
+              "target": "Package",
+              "version": "[2.2.5, )"
+            },
             "Discord.Net": {
               "target": "Package",
               "version": "[3.13.0, )"
@@ -91,19 +92,19 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[6.0.25, 6.0.25]"
+              "version": "[6.0.26, 6.0.26]"
             },
             {
               "name": "Microsoft.NETCore.App.Host.win-x64",
-              "version": "[6.0.25, 6.0.25]"
+              "version": "[6.0.26, 6.0.26]"
             },
             {
               "name": "Microsoft.NETCore.App.Ref",
-              "version": "[6.0.25, 6.0.25]"
+              "version": "[6.0.26, 6.0.26]"
             },
             {
               "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[6.0.25, 6.0.25]"
+              "version": "[6.0.26, 6.0.26]"
             }
           ],
           "frameworkReferences": {
@@ -114,7 +115,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101\\RuntimeIdentifierGraph.json"
         }
       }
     }
