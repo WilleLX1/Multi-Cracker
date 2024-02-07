@@ -87,6 +87,12 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 #### Last step... begin cracking!
 9. !crack
 
+### Crack MD5 with multiple computers using Auto-Crack:
+#### Set algorithm
+1. !setAlgorithm MD5
+#### Set hash for password (12345)
+2. !setHash 827ccb0eea8a706c4c34a16891f84e7b
+
 
 
 ## ToDo
