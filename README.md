@@ -72,19 +72,19 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 
 ## Examples
 ### Crack a SHA1 hash with one computer: (password: 12345)
-Set the hash algorithm
+#### Set the hash algorithm
 1. !setAlgorithm SHA1
-Configure settings for password (only numbers in this case)
+#### Configure settings for password (only numbers in this case)
 2. !setLetters false
 3. !setNumbers true
 4. !setSymbols false
 5. !setCapitals false
-Configure password length (12345 = 5)
+#### Configure password length (12345 = 5)
 6. !setMin 5
 7. !setMax 5
-Set the hash (hash for 12345)
+#### Set the hash (hash for 12345)
 8. !setHash 8cb2237d0679ca88db6464eac60da96345513964
-Last step... begin cracking!
+#### Last step... begin cracking!
 9. !crack
 
 
