@@ -70,6 +70,31 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 ##### OTHER
 - **!log** - Sends the log file to the C2.
 
+## Examples
+### Crack a SHA1 hash with one computer: (password: 12345)
+#### Set the hash algorithm
+1. !setAlgorithm SHA1
+#### Configure settings for password (only numbers in this case)
+2. !setLetters false
+3. !setNumbers true
+4. !setSymbols false
+5. !setCapitals false
+#### Configure password length (12345 = 5)
+6. !setMin 5
+7. !setMax 5
+#### Set the hash (hash for 12345)
+8. !setHash 8cb2237d0679ca88db6464eac60da96345513964
+#### Last step... begin cracking!
+9. !crack
+
+### Crack MD5 with multiple computers using Auto-Crack:
+#### Set algorithm
+1. !setAlgorithm MD5
+#### Set hash for password (12345)
+2. !setHash 827ccb0eea8a706c4c34a16891f84e7b
+
+
+
 ## ToDo
 - Command !microphone for RAT.
 - Fix token validation checker for RAT primary and secondary token
