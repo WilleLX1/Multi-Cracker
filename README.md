@@ -92,6 +92,16 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 1. !setAlgorithm MD5
 #### Set hash for password (12345)
 2. !setHash 827ccb0eea8a706c4c34a16891f84e7b
+#### Configure settings for password (only numbers in this case)
+3. !setLetters false
+4. !setNumbers true
+5. !setSymbols false
+6. !setCapitals false
+#### Configure password length (12345 = 5)
+7. !setMin 5
+8. !setMax 5
+#### Create the auto-crack settings
+9. !createAuto 50
 
 
 
