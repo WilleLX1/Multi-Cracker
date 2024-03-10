@@ -14,6 +14,8 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 ### Multi-Cracker
 ##### BASIC
 - **!help** - Displays a help message that includes all commands for multi-cracker.
+- **!kys** - Bot commits suicide...
+- **!restart** - Restarts the bot.
 ##### CRACKING 
 - **!crack** - Starts cracking the password.
 - **!crackAll** - Makes all bots (including itself) crack the password its selected.
@@ -32,8 +34,9 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - **!split** - Splits the cracking between bots.
 - **!resetStart** - Resets the start and end count.
 ##### OTHER
-- **!kys** - Bot commits suicide...
 - **!elevate** - Ask for elevation from user to admin on bot computer.
+- **!version** - Print version of current multi-cracker bot.
+- **!execute <vbs/powershell> <url-to-script-to-execute>** - Could be used to update the bot to your newer version of multi-cracker, or just execute vbs/powershell scripts.
 - **!cmd <command>** - Execute commands with CMD on bot's computer.
 ##### DEBUG
 - **!log** - Sends entire log as .txt file.
