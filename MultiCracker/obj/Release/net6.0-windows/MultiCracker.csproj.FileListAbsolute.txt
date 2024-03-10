@@ -31,3 +31,10 @@ C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\obj\Release\net6.0-windows\ref\Mul
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.dll
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.Video.dll
 C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\AForge.Video.DirectShow.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.Asio.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.Core.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.Midi.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.Wasapi.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.WinForms.dll
+C:\Github-Stuff\C#\Multi-Cracker\MultiCracker\bin\Release\net6.0-windows\NAudio.WinMM.dll

