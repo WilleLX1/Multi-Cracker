@@ -79,6 +79,7 @@ namespace MultiCracker
         // Keylogger not working when compiling to one file.
         // DONE: Make screenshot working for entire screen when only client is only using one screen.
         // DONE: Not being able to restart RAT if its channel is deleted.
+        // DONE: Add command for sending all variables to the C2.
         // ----------------------------------------
 
 
