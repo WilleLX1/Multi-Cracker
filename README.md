@@ -111,7 +111,7 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 ## ToDo
 - Command !microphone for RAT.
 - Fix token validation checker for RAT primary and secondary token
-- Better filter for RAT keylogger, its good but could be better.
+- Replace old RAT keylogger with new Quicklogger implementation.
 - Save current crack-run to temp file on disk every heartbeat. (So it can be used later in case of disconnection.)
 - Save settings to profiles. (file)
 - Faster splitting (splitting without needing to to through all password combinations.) for !split, (Not really needed but yeah...)
