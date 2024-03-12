@@ -60,6 +60,7 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 ##### SURVENILLANCE
 - **!screenshot** - Takes a screenshot of the screen.
 - **!webcam** - Takes a picture with the webcam.
+- **!microphone** - Creates new voice channel that streams audio from client's microphone. WORK IN PROGRESS
 ##### KEYLOGGER
 - **!keylogger start** - Starts the keylogger.
 - **!keylogger stop** - Stops the keylogger.
@@ -68,8 +69,7 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - **!cmd <command>** - Executes a command on the bot.
 - **!elevate** - Elevates the bot to admin.
 ##### FILE SYSTEM 
-- **!upload <DISCORD ATTACHMENT> <Folder\\of\\uploaded\\file>** - Uploads a file to the bot.
-- **!download <filename>** - Downloads a file from the bot.
+- **!filemanager** - Starts a custom made file browser within discord.
 ##### OTHER
 - **!log** - Sends the log file to the C2.
 
