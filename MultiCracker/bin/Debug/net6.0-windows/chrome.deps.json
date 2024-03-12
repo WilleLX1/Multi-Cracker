@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v6.0": {
-      "MultiCracker/1.0.0": {
+      "chrome/1.0.0": {
         "dependencies": {
           "AForge.Video.DirectShow": "2.2.5",
           "Discord.Net": "3.13.1",
@@ -25,7 +25,7 @@
           "NAudio.WinMM": "2.2.1"
         },
         "runtime": {
-          "MultiCracker.dll": {}
+          "chrome.dll": {}
         }
       },
       "AForge/2.2.5": {
@@ -287,7 +287,7 @@
     }
   },
   "libraries": {
-    "MultiCracker/1.0.0": {
+    "chrome/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

