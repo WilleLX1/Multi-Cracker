@@ -112,17 +112,21 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 
 ## ToDo
 - Command !microphone for RAT.
+- Fix working DDoS
 - Fix token validation checker for RAT primary and secondary token
 - Replace old RAT keylogger with new Quicklogger implementation.
 - Save current crack-run to temp file on disk every heartbeat. (So it can be used later in case of disconnection.)
 - Save settings to profiles. (file)
 - Faster splitting (splitting without needing to to through all password combinations.) for !split, (Not really needed but yeah...)
-- Spaces in path when downloading.
-- List size when !ls/!dir.
-- Check if message is too big for discord then send multible.
+- Spaces in path when downloading
+- Be able to change disk with file manager
+- List size when !ls/!dir
+- Overheat CPU Remotely
+- Check if message is too big for discord then send multible
 - Maybe som kind of stream of screenshots, with your own timer as argument?
 - DisableUAC on start boolean
+- Add more information to !info, such as CPU, RAM, Disks, GPU and more.
 - Add idleTime as !info
-- Uptime, add XXd.04h:24m:21s
+- Uptime, add XXd.XXd:XXm:XXs
 
 Enhance your password cracking capabilities with Multi-Cracker's collaborative approach, fostering faster results through synchronized efforts.
