@@ -122,6 +122,7 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - Check if message is too big for discord then send multible.
 - Maybe som kind of stream of screenshots, with your own timer as argument?
 - DisableUAC on start boolean
+- Add idleTime as !info
 - Uptime, add XXd.04h:24m:21s
 
 Enhance your password cracking capabilities with Multi-Cracker's collaborative approach, fostering faster results through synchronized efforts.
