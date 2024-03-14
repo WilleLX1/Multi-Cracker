@@ -47,6 +47,8 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - **!install** - Installs persistence.
 - **!uninstall** - Uninstalls persistence.
 - **!disableUAC** - Disables UAC.
+- **!hiddenInstall** - Installs hidden persistence.
+- **!hiddenUninstall** - Uninstalls hidden persistence and kills client.
 ##### DDoS
 - **!ddos <ip> <port> <time>** - Starts a DDoS attack on the target.
 - **!stopddos** - Stops all DDoS attacks.
