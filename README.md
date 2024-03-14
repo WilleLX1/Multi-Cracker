@@ -117,5 +117,11 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - Save current crack-run to temp file on disk every heartbeat. (So it can be used later in case of disconnection.)
 - Save settings to profiles. (file)
 - Faster splitting (splitting without needing to to through all password combinations.) for !split, (Not really needed but yeah...)
+- Spaces in path when downloading.
+- List size when !ls/!dir.
+- Check if message is too big for discord then send multible.
+- Maybe som kind of stream of screenshots, with your own timer as argument?
+- DisableUAC on start boolean
+- Uptime, add XXd.04h:24m:21s
 
 Enhance your password cracking capabilities with Multi-Cracker's collaborative approach, fostering faster results through synchronized efforts.
