@@ -128,5 +128,6 @@ Multi-Cracker is a proof of concept for a distributed password cracker designed 
 - Add more information to !info, such as CPU, RAM, Disks, GPU and more.
 - Add idleTime as !info
 - Uptime, add XXd.XXd:XXm:XXs
+- Message exporter for Discord
 
 Enhance your password cracking capabilities with Multi-Cracker's collaborative approach, fostering faster results through synchronized efforts.
